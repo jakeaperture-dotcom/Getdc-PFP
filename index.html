@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Grab, view, and download full-size Discord PFPs, profile pictures, and animated avatars using a public Discord user ID. No login required."
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="application-name" content="GetDC PFP" />
+    <meta name="color-scheme" content="dark" />
+    <script
+      async
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-650790447495885"
+      crossorigin="anonymous"
+    ></script>
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="64x64"
+      href="./assets/favicon.png"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="GetDC PFP" />
+    <meta
+      property="og:title"
+      content="Discord PFP Grabber, Downloader & Viewer"
+    />
+    <meta
+      property="og:description"
+      content="Grab, view, and download full-size Discord PFPs and animated avatars using a public Discord user ID."
+    />
+    <meta property="og:url" content="https://getdcpfp.online/" />
+    <link rel="canonical" href="https://getdcpfp.online/" />
+    <title>Discord PFP Grabber, Downloader & Viewer | GetDC PFP</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+
+  <body>
+    <main>
+      <section
+        aria-labelledby="page-title"
+        class="tool"
+      >
+        <h1 id="page-title">
+          Discord PFP grabber, downloader & viewer
+        </h1>
+
+        <div id="profile" hidden aria-live="polite">
+          <button
+            id="avatar-button"
+            type="button"
+            aria-haspopup="dialog"
+          >
+            <img id="avatar" alt="" />
+          </button>
+          <h2 id="username"></h2>
+        </div>
+
+        <form id="lookup-form" novalidate>
+          <label for="discord-user-id" class="sr-only">
+            Discord user ID
+          </label>
+          <div class="form-row">
+            <button
+              id="lookup-button"
+              type="submit"
+            >
+              Look up
+            </button>
+            <input
+              id="discord-user-id"
+              name="discordUserId"
+              type="text"
+              inputmode="numeric"
+              enterkeyhint="search"
+              maxlength="20"
+              pattern="[0-9]{17,20}"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Enter a Discord user ID"
+              aria-describedby="lookup-error"
+            />
+          </div>
+          <p
+            id="lookup-error"
+            role="alert"
+            hidden
+          ></p>
+        </form>
+
+        <a
+          id="download-button"
+          hidden
+          download
+        >
+          <img
+            src="./assets/download-simple.svg"
+            alt=""
+            aria-hidden="true"
+          />
+          Download avatar
+        </a>
+      </section>
+    </main>
+
+    <dialog id="avatar-dialog" aria-label="Full-size Discord avatar">
+      <button
+        id="avatar-dialog-close"
+        type="button"
+        aria-label="Close full-size avatar"
+      >
+        &times;
+      </button>
+      <img id="full-avatar" alt="" />
+    </dialog>
+
+    <footer>
+      <p>Independent tool · Not affiliated with or endorsed by Discord.</p>
+      <details>
+        <summary>
+          Privacy & terms
+        </summary>
+        <div class="terms">
+          <p>
+            The Discord user ID you enter is sent to our server and
+            <a
+              href="https://skit-utils.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Skit Utils</a>
+            only to retrieve public profile information. We do not store
+            searches in our own database. Hosting, upstream, and advertising
+            providers may retain technical logs. Google AdSense may use
+            cookies or similar technologies to deliver, measure, and protect
+            advertising. See
+            <a
+              href="https://policies.google.com/technologies/ads"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Google's advertising policies</a>.
+          </p>
+          <p>
+            Do not use this service for bulk collection, harassment,
+            impersonation, or unlawful activity. The service is provided as-is
+            and may change or become unavailable. Discord and related marks
+            belong to Discord Inc.
+          </p>
+        </div>
+      </details>
+    </footer>
+  </body>
+</html>
