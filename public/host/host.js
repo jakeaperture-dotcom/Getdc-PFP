@@ -1,12 +1,14 @@
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const POSTS_API = "/api/host/posts";
 
+const chatStream = document.querySelector("#chat-stream");
+const postGrid = document.querySelector("#post-grid");
+const feedStatus = document.querySelector("#feed-status");
+const liveStatus = document.querySelector("#live-status");
 const postForm = document.querySelector("#post-form");
 const authorInput = document.querySelector("#author");
 const messageInput = document.querySelector("#message");
-const messageCount = document.querySelector("#message-count");
 const fileInput = document.querySelector("#file");
-const fileDrop = document.querySelector("#file-drop");
 const selectedFile = document.querySelector("#selected-file");
 const selectedFileType = document.querySelector("#selected-file-type");
 const selectedFileName = document.querySelector("#selected-file-name");
@@ -14,25 +16,18 @@ const selectedFileSize = document.querySelector("#selected-file-size");
 const removeFileButton = document.querySelector("#remove-file");
 const formError = document.querySelector("#form-error");
 const postButton = document.querySelector("#post-button");
-const postGrid = document.querySelector("#post-grid");
-const postCount = document.querySelector("#post-count");
-const feedStatus = document.querySelector("#feed-status");
-const filterButtons = [...document.querySelectorAll("[data-filter]")];
-const liveStatus = document.querySelector("#live-status");
-const copyLinkButton = document.querySelector("#copy-link");
 const imageDialog = document.querySelector("#image-dialog");
 const dialogImage = document.querySelector("#dialog-image");
-const dialogTitle = document.querySelector("#image-dialog-title");
 const dialogDownload = document.querySelector("#dialog-download");
 const closeDialogButton = document.querySelector("#close-dialog");
 
 let posts = [];
-let activeFilter = "all";
+let pendingFile = null;
 let socket;
 let reconnectTimer;
 let reconnectAttempts = 0;
 let isLoadingPosts = false;
-let pendingFile = null;
+let errorTimer;
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -60,36 +55,58 @@ const fileExtension = (name) => {
 const relativeTime = (dateValue) => {
   const timestamp = new Date(dateValue).getTime();
   const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
-  if (seconds < 10) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 10) return "now";
+  if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `${hours}h`;
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return `${days}d`;
   return dateTimeFormatter.format(new Date(timestamp));
 };
 
-const avatarHue = (name) =>
-  [...name].reduce((total, character) => total + character.codePointAt(0), 0) %
-  360;
+const isNearBottom = (threshold = 120) =>
+  chatStream.scrollHeight - chatStream.scrollTop - chatStream.clientHeight <
+  threshold;
 
-const avatarInitials = (name) => {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  return (words.length > 1 ? `${words[0][0]}${words.at(-1)[0]}` : words[0]?.[0] || "A")
-    .toUpperCase()
-    .slice(0, 2);
+const scrollToBottom = (behavior = "auto") => {
+  chatStream.scrollTo({ top: chatStream.scrollHeight, behavior });
+};
+
+const showFeedStatus = (message, { loading = false, empty = false } = {}) => {
+  const label = document.createElement("span");
+  label.textContent = message;
+  feedStatus.replaceChildren();
+  feedStatus.classList.toggle("is-empty", empty);
+  if (loading) {
+    const spinner = document.createElement("span");
+    spinner.className = "spinner";
+    spinner.setAttribute("aria-hidden", "true");
+    feedStatus.append(spinner);
+  }
+  feedStatus.append(label);
+  feedStatus.hidden = false;
 };
 
 const showFormError = (message) => {
+  window.clearTimeout(errorTimer);
   formError.textContent = message;
   formError.hidden = false;
+  errorTimer = window.setTimeout(() => {
+    formError.hidden = true;
+  }, 4500);
 };
 
 const clearFormError = () => {
+  window.clearTimeout(errorTimer);
   formError.textContent = "";
   formError.hidden = true;
+};
+
+const resizeMessageInput = () => {
+  messageInput.style.height = "auto";
+  messageInput.style.height = `${Math.min(messageInput.scrollHeight, 104)}px`;
 };
 
 const setSelectedFile = (file) => {
@@ -97,141 +114,135 @@ const setSelectedFile = (file) => {
   pendingFile = file || null;
 
   if (!file) {
-    selectedFile.hidden = true;
     fileInput.value = "";
+    selectedFile.hidden = true;
     return;
   }
 
   if (file.size > MAX_FILE_BYTES) {
     pendingFile = null;
-    showFormError("Choose a file that is 20 MB or smaller.");
-    selectedFile.hidden = true;
     fileInput.value = "";
+    selectedFile.hidden = true;
+    showFormError("Maximum file size is 20 MB.");
     return;
   }
 
   selectedFileType.textContent = fileExtension(file.name);
   selectedFileName.textContent = file.name;
-  selectedFileSize.textContent = `${formatBytes(file.size)} · ready to share`;
+  selectedFileSize.textContent = formatBytes(file.size);
   selectedFile.hidden = false;
+};
+
+const createDownloadIcon = () => {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  path.setAttribute("d", "M12 4v11m0 0-4-4m4 4 4-4M5 20h14");
+  svg.append(path);
+  return svg;
+};
+
+const createFileLink = (post) => {
+  const link = document.createElement("a");
+  const type = document.createElement("span");
+  const copy = document.createElement("span");
+  const name = document.createElement("strong");
+  const size = document.createElement("small");
+
+  link.className = "message-file";
+  link.href = post.file.downloadUrl;
+  link.setAttribute("download", post.file.name);
+  link.setAttribute("aria-label", `Download ${post.file.name}`);
+  type.className = "file-type";
+  type.textContent = fileExtension(post.file.name);
+  copy.className = "file-copy";
+  name.textContent = post.file.name;
+  size.textContent = formatBytes(post.file.size);
+  copy.append(name, size);
+  link.append(type, copy, createDownloadIcon());
+  return link;
 };
 
 const openImage = (post) => {
   dialogImage.src = post.file.previewUrl;
   dialogImage.alt = `${post.file.name}, shared by ${post.author}`;
-  dialogTitle.textContent = post.file.name;
   dialogDownload.href = post.file.downloadUrl;
   imageDialog.showModal();
 };
 
-const createFileRow = (post) => {
-  const link = document.createElement("a");
-  const badge = document.createElement("span");
-  const copy = document.createElement("span");
-  const title = document.createElement("strong");
-  const detail = document.createElement("small");
-  const download = document.createElement("span");
-
-  link.className = "post-file";
-  link.href = post.file.downloadUrl;
-  link.setAttribute("download", post.file.name);
-  badge.className = "post-file-type";
-  badge.textContent = fileExtension(post.file.name);
-  copy.className = "post-file-copy";
-  title.textContent = post.file.name;
-  detail.textContent = `${formatBytes(post.file.size)} · ${post.file.type || "file"}`;
-  copy.append(title, detail);
-  download.className = "post-file-download";
-  download.textContent = "Download";
-  link.append(badge, copy, download);
-  return link;
-};
-
-const createPostCard = (post) => {
-  const article = document.createElement("article");
-  const header = document.createElement("header");
-  const avatar = document.createElement("span");
-  const identity = document.createElement("span");
+const createMessage = (post) => {
+  const message = document.createElement("article");
+  const meta = document.createElement("div");
   const author = document.createElement("strong");
   const time = document.createElement("time");
+  const bubble = document.createElement("div");
+  const currentName = authorInput.value.trim();
+  const isOwn = Boolean(currentName) && post.author === currentName;
 
-  article.className = "post-card";
-  article.dataset.postId = post.id;
-  header.className = "post-header";
-  avatar.className = "post-avatar";
-  avatar.style.setProperty("--avatar-hue", String(avatarHue(post.author)));
-  avatar.textContent = avatarInitials(post.author);
-  identity.className = "post-identity";
+  message.className = `message${isOwn ? " is-own" : ""}`;
+  message.dataset.postId = post.id;
+  meta.className = "message-meta";
   author.textContent = post.author;
   time.dateTime = post.createdAt;
   time.title = new Date(post.createdAt).toLocaleString();
   time.dataset.relativeTime = post.createdAt;
   time.textContent = relativeTime(post.createdAt);
-  identity.append(author, time);
-  header.append(avatar, identity);
-  article.append(header);
+  meta.append(author, time);
+  bubble.className = "message-bubble";
 
   if (post.message) {
-    const message = document.createElement("p");
-    message.className = "post-message";
-    message.textContent = post.message;
-    article.append(message);
+    const text = document.createElement("p");
+    text.className = "message-text";
+    text.textContent = post.message;
+    bubble.append(text);
   }
 
   if (post.file?.previewUrl) {
-    const previewButton = document.createElement("button");
+    const preview = document.createElement("button");
     const image = document.createElement("img");
-    previewButton.className = "post-image";
-    previewButton.type = "button";
-    previewButton.setAttribute("aria-label", `Open ${post.file.name}`);
+    preview.className = "message-image";
+    preview.type = "button";
+    preview.setAttribute("aria-label", `Open ${post.file.name}`);
     image.src = post.file.previewUrl;
     image.alt = `${post.file.name}, shared by ${post.author}`;
     image.loading = "lazy";
     image.decoding = "async";
-    previewButton.append(image);
-    previewButton.addEventListener("click", () => openImage(post));
-    article.append(previewButton);
+    image.addEventListener("load", () => {
+      if (isNearBottom(240)) scrollToBottom();
+    });
+    preview.append(image);
+    preview.addEventListener("click", () => openImage(post));
+    bubble.append(preview);
   }
 
-  if (post.file) article.append(createFileRow(post));
-  return article;
+  if (post.file) bubble.append(createFileLink(post));
+  message.append(meta, bubble);
+  return message;
 };
 
-const filteredPosts = () =>
-  posts.filter((post) => {
-    if (activeFilter === "images") return Boolean(post.file?.previewUrl);
-    if (activeFilter === "files") return Boolean(post.file);
-    return true;
-  });
+const renderPosts = ({ scroll = false } = {}) => {
+  const chronologicalPosts = [...posts].reverse();
+  postGrid.replaceChildren(...chronologicalPosts.map(createMessage));
+  feedStatus.hidden = Boolean(posts.length);
 
-const renderPosts = () => {
-  const visiblePosts = filteredPosts();
-  postGrid.replaceChildren(...visiblePosts.map(createPostCard));
-  postCount.textContent = posts.length ? `(${posts.length})` : "";
+  if (!posts.length) {
+    showFeedStatus("No messages yet", { empty: true });
+  }
 
-  if (!visiblePosts.length) {
-    feedStatus.innerHTML = "";
-    const title = document.createElement("strong");
-    const detail = document.createElement("span");
-    title.textContent = posts.length ? "Nothing matches this filter." : "The wall is empty.";
-    detail.textContent = posts.length
-      ? "Choose another view to see the rest of the wall."
-      : "Be the first person to share something with the room.";
-    feedStatus.append(title, detail);
-    feedStatus.hidden = false;
-  } else {
-    feedStatus.hidden = true;
+  if (scroll) {
+    window.requestAnimationFrame(() => scrollToBottom());
   }
 };
 
 const loadPosts = async ({ silent = false } = {}) => {
   if (isLoadingPosts) return;
   isLoadingPosts = true;
+  const hadPosts = posts.length > 0;
+  const previousNewestId = posts[0]?.id;
+  const wasNearBottom = isNearBottom();
 
-  if (!silent && !posts.length) {
-    feedStatus.hidden = false;
-    feedStatus.textContent = "Loading the wall…";
-  }
+  if (!silent && !hadPosts) showFeedStatus("Loading", { loading: true });
 
   try {
     const response = await fetch(POSTS_API, {
@@ -240,19 +251,18 @@ const loadPosts = async ({ silent = false } = {}) => {
     });
     const data = await response.json();
     if (!response.ok || !Array.isArray(data.posts)) {
-      throw new Error(data.error || "The wall could not be loaded.");
+      throw new Error(data.error || "Could not load messages.");
     }
+
     posts = data.posts;
-    renderPosts();
+    const hasNewMessage = Boolean(posts[0]?.id && posts[0].id !== previousNewestId);
+    renderPosts({ scroll: !hadPosts || (hasNewMessage && wasNearBottom) });
   } catch (error) {
     if (!posts.length) {
-      feedStatus.innerHTML = "";
-      const title = document.createElement("strong");
-      const detail = document.createElement("span");
-      title.textContent = "The wall is unavailable.";
-      detail.textContent = error instanceof Error ? error.message : "Try again in a moment.";
-      feedStatus.append(title, detail);
-      feedStatus.hidden = false;
+      showFeedStatus(
+        error instanceof Error ? error.message : "Could not load messages.",
+        { empty: true },
+      );
     }
   } finally {
     isLoadingPosts = false;
@@ -261,6 +271,7 @@ const loadPosts = async ({ silent = false } = {}) => {
 
 const setLiveState = (state, label) => {
   liveStatus.dataset.state = state;
+  liveStatus.title = label;
   liveStatus.lastElementChild.textContent = label;
 };
 
@@ -289,7 +300,7 @@ const connectLiveUpdates = () => {
   });
 
   socket.addEventListener("close", () => {
-    setLiveState("offline", "Refreshing");
+    setLiveState("offline", "Reconnecting");
     reconnectAttempts += 1;
     const delay = Math.min(30_000, 1000 * 2 ** reconnectAttempts);
     reconnectTimer = window.setTimeout(connectLiveUpdates, delay);
@@ -299,31 +310,53 @@ const connectLiveUpdates = () => {
 };
 
 messageInput.addEventListener("input", () => {
-  messageCount.textContent = `${messageInput.value.length} / 1200`;
   clearFormError();
+  resizeMessageInput();
+});
+
+messageInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    event.preventDefault();
+    postForm.requestSubmit();
+  }
+});
+
+authorInput.addEventListener("input", () => {
+  try {
+    localStorage.setItem("class-wall-name", authorInput.value.trim());
+  } catch {
+    // Remembering the name is optional.
+  }
+  renderPosts();
+});
+
+authorInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    messageInput.focus();
+  }
 });
 
 fileInput.addEventListener("change", () => setSelectedFile(fileInput.files[0]));
 removeFileButton.addEventListener("click", () => setSelectedFile(null));
 
 ["dragenter", "dragover"].forEach((eventName) => {
-  fileDrop.addEventListener(eventName, (event) => {
+  postForm.addEventListener(eventName, (event) => {
     event.preventDefault();
-    fileDrop.classList.add("is-dragging");
+    postForm.classList.add("is-dragging");
   });
 });
 
 ["dragleave", "drop"].forEach((eventName) => {
-  fileDrop.addEventListener(eventName, (event) => {
+  postForm.addEventListener(eventName, (event) => {
     event.preventDefault();
-    fileDrop.classList.remove("is-dragging");
+    postForm.classList.remove("is-dragging");
   });
 });
 
-fileDrop.addEventListener("drop", (event) => {
+postForm.addEventListener("drop", (event) => {
   const file = event.dataTransfer.files[0];
-  if (!file) return;
-  setSelectedFile(file);
+  if (file) setSelectedFile(file);
 });
 
 postForm.addEventListener("submit", async (event) => {
@@ -333,17 +366,12 @@ postForm.addEventListener("submit", async (event) => {
   const message = messageInput.value.trim();
   const file = pendingFile;
   if (!message && !file) {
-    showFormError("Write a note or choose a file before posting.");
+    showFormError("Write a message or attach a file.");
     messageInput.focus();
-    return;
-  }
-  if (file && file.size > MAX_FILE_BYTES) {
-    showFormError("Choose a file that is 20 MB or smaller.");
     return;
   }
 
   postButton.disabled = true;
-  postButton.querySelector("span").textContent = "Posting…";
   postForm.setAttribute("aria-busy", "true");
 
   try {
@@ -358,59 +386,21 @@ postForm.addEventListener("submit", async (event) => {
     });
     const data = await response.json();
     if (!response.ok || !data.post) {
-      throw new Error(data.error || "The post could not be shared.");
-    }
-
-    const savedName = authorInput.value.trim();
-    try {
-      localStorage.setItem("class-wall-name", savedName);
-    } catch {
-      // Saving the optional display name is a convenience only.
+      throw new Error(data.error || "Could not send.");
     }
 
     posts = [data.post, ...posts.filter((post) => post.id !== data.post.id)];
     messageInput.value = "";
-    messageCount.textContent = "0 / 1200";
+    resizeMessageInput();
     setSelectedFile(null);
-    renderPosts();
-    document.querySelector(`[data-post-id="${data.post.id}"]`)?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-      block: "center",
-    });
+    renderPosts({ scroll: true });
+    messageInput.focus();
   } catch (error) {
-    showFormError(
-      error instanceof Error ? error.message : "The post could not be shared.",
-    );
+    showFormError(error instanceof Error ? error.message : "Could not send.");
   } finally {
     postButton.disabled = false;
-    postButton.querySelector("span").textContent = "Post to the wall";
     postForm.setAttribute("aria-busy", "false");
   }
-});
-
-filterButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    activeFilter = button.dataset.filter;
-    filterButtons.forEach((candidate) => {
-      candidate.setAttribute("aria-pressed", String(candidate === button));
-    });
-    renderPosts();
-  });
-});
-
-copyLinkButton.addEventListener("click", async () => {
-  const label = copyLinkButton.querySelector("span");
-  try {
-    await navigator.clipboard.writeText(window.location.href);
-    label.textContent = "Copied";
-  } catch {
-    label.textContent = "Copy failed";
-  }
-  window.setTimeout(() => {
-    label.textContent = "Copy link";
-  }, 1800);
 });
 
 closeDialogButton.addEventListener("click", () => imageDialog.close());
@@ -429,7 +419,7 @@ document.addEventListener("visibilitychange", () => {
 try {
   authorInput.value = localStorage.getItem("class-wall-name") || "";
 } catch {
-  // The wall works normally when local storage is unavailable.
+  // The wall works normally without local storage.
 }
 
 window.setInterval(() => {
@@ -439,5 +429,6 @@ window.setInterval(() => {
 }, 30_000);
 
 window.setInterval(() => loadPosts({ silent: true }), 15_000);
+resizeMessageInput();
 loadPosts();
 connectLiveUpdates();

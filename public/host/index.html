@@ -3,10 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="An unlisted classroom wall for sharing notes, images, and files."
-    />
+    <meta name="description" content="An unlisted classroom message wall." />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/png" sizes="64x64" href="../assets/favicon.png" />
@@ -17,155 +14,101 @@
       type="font/woff2"
       crossorigin
     />
-    <link rel="stylesheet" href="./host.css?v=20260819-2" />
-    <title>Class Wall · GetDC</title>
-    <script src="./host.js?v=20260819-2" defer></script>
+    <link rel="stylesheet" href="./host.css?v=20260819-3" />
+    <title>Class Wall</title>
+    <script src="./host.js?v=20260819-3" defer></script>
   </head>
   <body>
-    <a class="skip-link" href="#shared-posts">Skip to shared posts</a>
-
-    <header class="site-header">
-      <a class="wordmark" href="/host" aria-label="Class Wall home">
-        <span class="wordmark-dot" aria-hidden="true"></span>
-        <span>Class Wall</span>
-        <small>/host</small>
-      </a>
-
-      <div class="header-actions">
-        <p class="live-status" id="live-status" data-state="connecting">
+    <main class="chat-shell">
+      <section class="chat-stream" id="chat-stream" aria-label="Class messages">
+        <div class="presence" id="live-status" data-state="connecting" title="Connecting">
           <span aria-hidden="true"></span>
-          <span>Connecting</span>
-        </p>
-        <button class="quiet-button" id="copy-link" type="button">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="8" y="8" width="11" height="11" rx="2" />
-            <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
-          </svg>
-          <span>Copy link</span>
-        </button>
-      </div>
-    </header>
-
-    <main>
-      <section class="intro" aria-labelledby="page-title">
-        <p class="eyebrow">Unlisted shared space</p>
-        <h1 id="page-title">Pass it across the room.</h1>
-        <p>
-          Share a note, image, or class file. Everyone on this page sees new posts
-          as they arrive and can download them.
-        </p>
-      </section>
-
-      <section class="composer" aria-labelledby="composer-title">
-        <div class="composer-heading">
-          <div>
-            <p class="eyebrow">New post</p>
-            <h2 id="composer-title">Share something</h2>
-          </div>
-          <p class="composer-note">No account · 20 MB max</p>
-        </div>
-
-        <form id="post-form" enctype="multipart/form-data" novalidate>
-          <div class="field">
-            <label for="author">Your name <span>optional</span></label>
-            <input
-              id="author"
-              name="author"
-              type="text"
-              maxlength="40"
-              autocomplete="nickname"
-              placeholder="Anonymous"
-            />
-          </div>
-
-          <div class="field">
-            <label for="message">Note <span>optional with a file</span></label>
-            <textarea
-              id="message"
-              name="message"
-              maxlength="1200"
-              rows="4"
-              placeholder="What are you sharing?"
-              aria-describedby="message-count"
-            ></textarea>
-            <p class="character-count" id="message-count">0 / 1200</p>
-          </div>
-
-          <label class="file-drop" id="file-drop" for="file">
-            <input id="file" name="file" type="file" />
-            <span class="file-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" />
-                <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
-              </svg>
-            </span>
-            <span class="file-drop-copy">
-              <strong>Add a file</strong>
-              <small>Choose one or drop it here</small>
-            </span>
-            <span class="file-action">Browse</span>
-          </label>
-
-          <div class="selected-file" id="selected-file" hidden>
-            <span class="selected-file-type" id="selected-file-type">FILE</span>
-            <span class="selected-file-copy">
-              <strong id="selected-file-name"></strong>
-              <small id="selected-file-size"></small>
-            </span>
-            <button id="remove-file" type="button" aria-label="Remove selected file">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m6 6 12 12M18 6 6 18" />
-              </svg>
-            </button>
-          </div>
-
-          <p class="form-error" id="form-error" role="alert" hidden></p>
-
-          <div class="form-actions">
-            <p>Anyone with this page can view and download your post.</p>
-            <button class="post-button" id="post-button" type="submit">
-              <span>Post to the wall</span>
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 12h14m-5-5 5 5-5 5" />
-              </svg>
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section class="wall" id="shared-posts" aria-labelledby="wall-title">
-        <div class="wall-heading">
-          <div>
-            <p class="eyebrow">Shared with the room</p>
-            <h2 id="wall-title">Recent posts <span id="post-count"></span></h2>
-          </div>
-
-          <div class="filters" aria-label="Filter posts">
-            <button type="button" data-filter="all" aria-pressed="true">All</button>
-            <button type="button" data-filter="images" aria-pressed="false">Images</button>
-            <button type="button" data-filter="files" aria-pressed="false">Files</button>
-          </div>
+          <span class="sr-only">Connecting</span>
         </div>
 
         <div class="feed-status" id="feed-status" role="status">
           <span class="spinner" aria-hidden="true"></span>
-          Loading the wall…
+          <span>Loading</span>
         </div>
-        <div class="post-grid" id="post-grid"></div>
+
+        <div
+          class="message-list"
+          id="post-grid"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+        ></div>
       </section>
+
+      <form
+        class="composer"
+        id="post-form"
+        enctype="multipart/form-data"
+        novalidate
+      >
+        <div class="attachment-tray" id="selected-file" hidden>
+          <span class="attachment-type" id="selected-file-type">FILE</span>
+          <span class="attachment-copy">
+            <strong id="selected-file-name"></strong>
+            <small id="selected-file-size"></small>
+          </span>
+          <button id="remove-file" type="button" aria-label="Remove selected file">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <p class="form-error" id="form-error" role="alert" hidden></p>
+
+        <label class="attach-button" for="file" title="Attach a file">
+          <span class="sr-only">Attach a file</span>
+          <input id="file" name="file" type="file" />
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m20.5 11.5-8.4 8.4a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 1 1-2.8-2.8l8.5-8.5" />
+          </svg>
+        </label>
+
+        <label class="message-field" for="message">
+          <span class="sr-only">Message</span>
+          <textarea
+            id="message"
+            name="message"
+            maxlength="1200"
+            rows="1"
+            placeholder="Message"
+          ></textarea>
+        </label>
+
+        <label class="name-field" for="author">
+          <span class="sr-only">Your name</span>
+          <input
+            id="author"
+            name="author"
+            type="text"
+            maxlength="40"
+            autocomplete="nickname"
+            placeholder="Name"
+            title="Your name"
+          />
+        </label>
+
+        <button class="send-button" id="post-button" type="submit" aria-label="Send">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m4 12 16-8-5.5 16-3-6.5L4 12Z" />
+            <path d="m11.5 13.5 4-4" />
+          </svg>
+        </button>
+      </form>
     </main>
 
-    <footer>
-      <p>Unlisted, not private. Share the address only with people you trust.</p>
-      <a href="/">Back to GetDC</a>
-    </footer>
-
-    <dialog id="image-dialog" aria-labelledby="image-dialog-title">
-      <div class="dialog-header">
-        <div>
-          <p class="eyebrow">Image preview</p>
-          <h2 id="image-dialog-title">Shared image</h2>
-        </div>
+    <dialog id="image-dialog" aria-label="Image preview">
+      <div class="dialog-actions">
+        <a id="dialog-download" href="" aria-label="Download image" title="Download">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" />
+          </svg>
+        </a>
         <button id="close-dialog" type="button" aria-label="Close image preview">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="m6 6 12 12M18 6 6 18" />
@@ -173,7 +116,6 @@
         </button>
       </div>
       <img id="dialog-image" alt="" />
-      <a class="dialog-download" id="dialog-download" href="">Download original</a>
     </dialog>
   </body>
 </html>
