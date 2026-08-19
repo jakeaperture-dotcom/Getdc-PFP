@@ -8,37 +8,39 @@
 
 :root {
   color-scheme: light dark;
-  --page: #f3f4f1;
+  --page: #f0f2f5;
   --surface: #ffffff;
-  --surface-soft: #e8eae5;
-  --text: #171916;
-  --muted: #777b73;
-  --line: #d9dcd5;
-  --accent: rgb(88, 101, 242);
-  --accent-hover: rgb(75, 85, 214);
-  --accent-soft: rgba(88, 101, 242, 0.12);
-  --accent-text: #ffffff;
-  --danger: #a63730;
-  --danger-soft: #f9e4e1;
-  --shadow: 0 8px 30px rgba(29, 34, 30, 0.08);
+  --surface-soft: #e4e6eb;
+  --text: #050505;
+  --muted: #65676b;
+  --line: #ced0d4;
+  --line-strong: #8a8d91;
+  --action: #1c1e21;
+  --action-hover: #3a3b3c;
+  --selection: #e4e6eb;
+  --on-action: #ffffff;
+  --error: #050505;
+  --error-soft: #e4e6eb;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
   font-family: "Manrope", sans-serif;
   font-synthesis: none;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --page: #0e100e;
-    --surface: #181b18;
-    --surface-soft: #242824;
-    --text: #f0f2ed;
-    --muted: #92978e;
-    --line: #2b302b;
-    --accent: rgb(88, 101, 242);
-    --accent-hover: rgb(113, 125, 255);
-    --accent-soft: rgba(88, 101, 242, 0.2);
-    --accent-text: #ffffff;
-    --danger: #ff9187;
-    --danger-soft: #39211e;
+    --page: #18191a;
+    --surface: #242526;
+    --surface-soft: #3a3b3c;
+    --text: #e4e6eb;
+    --muted: #b0b3b8;
+    --line: #3e4042;
+    --line-strong: #65676b;
+    --action: #e4e6eb;
+    --action-hover: #ffffff;
+    --selection: #3a3b3c;
+    --on-action: #18191a;
+    --error: #e4e6eb;
+    --error-soft: #3a3b3c;
     --shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
   }
 }
@@ -129,12 +131,12 @@ button {
   width: 0.42rem;
   height: 0.42rem;
   border-radius: 50%;
-  background: #c49744;
+  background: var(--muted);
 }
 
 .presence[data-state="live"] > span:first-child {
-  background: var(--accent);
-  box-shadow: 0 0 0 0.2rem var(--accent-soft);
+  background: var(--action);
+  box-shadow: 0 0 0 0.2rem var(--selection);
 }
 
 .presence[data-state="offline"] > span:first-child {
@@ -168,7 +170,7 @@ button {
   width: 0.9rem;
   height: 0.9rem;
   border: 2px solid var(--line);
-  border-top-color: var(--accent);
+  border-top-color: var(--action);
   border-radius: 50%;
   animation: spin 700ms linear infinite;
 }
@@ -216,9 +218,9 @@ button {
 }
 
 .message.is-own .message-bubble {
-  border-color: var(--accent);
+  border-color: var(--line-strong);
   border-radius: 1rem 0.35rem 1rem 1rem;
-  background: var(--accent-soft);
+  background: var(--selection);
 }
 
 .message-text {
@@ -271,7 +273,7 @@ button {
   display: grid;
   border-radius: 0.48rem;
   background: var(--surface-soft);
-  color: var(--accent);
+  color: var(--action);
   font-size: 0.52rem;
   font-weight: 800;
   place-items: center;
@@ -322,8 +324,8 @@ button {
 }
 
 .file-action:hover {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--selection);
+  color: var(--action);
 }
 
 .file-action svg {
@@ -353,8 +355,8 @@ button {
 }
 
 .composer.is-dragging {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 0.2rem var(--accent-soft), var(--shadow);
+  border-color: var(--line-strong);
+  box-shadow: 0 0 0 0.2rem var(--selection), var(--shadow);
 }
 
 .attach-button,
@@ -373,7 +375,7 @@ button {
 }
 
 .attach-button:hover {
-  color: var(--accent);
+  color: var(--action);
 }
 
 .attach-button input {
@@ -387,7 +389,7 @@ button {
 }
 
 .attach-button:has(input:focus-visible) {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--action);
   outline-offset: 2px;
 }
 
@@ -449,18 +451,13 @@ button {
   opacity: 1;
 }
 
-.message-field:focus-within,
-.name-field:focus-within {
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-
 .send-button {
-  background: var(--accent);
-  color: var(--accent-text);
+  background: var(--action);
+  color: var(--on-action);
 }
 
 .send-button:hover {
-  background: var(--accent-hover);
+  background: var(--action-hover);
 }
 
 .send-button:disabled {
@@ -529,11 +526,11 @@ button {
   bottom: calc(100% + 0.55rem);
   max-width: min(24rem, 100%);
   margin: 0;
-  border: 1px solid var(--danger);
+  border: 1px solid var(--line-strong);
   border-radius: 0.75rem;
-  background: var(--danger-soft);
+  background: var(--error-soft);
   padding: 0.65rem 0.8rem;
-  color: var(--danger);
+  color: var(--error);
   font-size: 0.67rem;
   line-height: 1.45;
 }
@@ -588,11 +585,8 @@ dialog::backdrop {
 }
 
 button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-label:focus-visible {
-  outline: 2px solid var(--accent);
+a:focus-visible {
+  outline: 2px solid var(--action);
   outline-offset: 2px;
 }
 
