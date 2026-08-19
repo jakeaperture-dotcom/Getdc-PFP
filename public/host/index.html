@@ -14,9 +14,9 @@
       type="font/woff2"
       crossorigin
     />
-    <link rel="stylesheet" href="./host.css?v=20260819-3" />
+    <link rel="stylesheet" href="./host.css?v=20260819-4" />
     <title>Class Wall</title>
-    <script src="./host.js?v=20260819-3" defer></script>
+    <script src="./host.js?v=20260819-4" defer></script>
   </head>
   <body>
     <main class="chat-shell">
@@ -47,6 +47,15 @@
         novalidate
       >
         <div class="attachment-tray" id="selected-file" hidden>
+          <button
+            class="attachment-preview"
+            id="selected-file-preview"
+            type="button"
+            aria-label="Preview selected image"
+            hidden
+          >
+            <img id="selected-file-image" alt="" />
+          </button>
           <span class="attachment-type" id="selected-file-type">FILE</span>
           <span class="attachment-copy">
             <strong id="selected-file-name"></strong>

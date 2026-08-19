@@ -14,8 +14,9 @@
   --text: #171916;
   --muted: #777b73;
   --line: #d9dcd5;
-  --accent: #28634f;
-  --accent-soft: #dcebe4;
+  --accent: rgb(88, 101, 242);
+  --accent-hover: rgb(75, 85, 214);
+  --accent-soft: rgba(88, 101, 242, 0.12);
   --accent-text: #ffffff;
   --danger: #a63730;
   --danger-soft: #f9e4e1;
@@ -32,9 +33,10 @@
     --text: #f0f2ed;
     --muted: #92978e;
     --line: #2b302b;
-    --accent: #8ac9ad;
-    --accent-soft: #1d352b;
-    --accent-text: #0c1e16;
+    --accent: rgb(88, 101, 242);
+    --accent-hover: rgb(113, 125, 255);
+    --accent-soft: rgba(88, 101, 242, 0.2);
+    --accent-text: #ffffff;
     --danger: #ff9187;
     --danger-soft: #39211e;
     --shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
@@ -252,9 +254,7 @@ button {
   align-items: center;
   border-top: 1px solid var(--line);
   padding: 0.55rem 0.65rem;
-  color: inherit;
-  text-decoration: none;
-  grid-template-columns: 2.3rem minmax(0, 1fr) 1.7rem;
+  grid-template-columns: 2.3rem minmax(0, 1fr) auto;
   gap: 0.65rem;
 }
 
@@ -303,10 +303,33 @@ button {
   font-size: 0.56rem;
 }
 
-.message-file svg {
+.file-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.file-action {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: none;
+  place-items: center;
+}
+
+.file-action:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.file-action svg {
   width: 1rem;
   fill: none;
-  stroke: var(--muted);
+  stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.7;
@@ -437,7 +460,7 @@ button {
 }
 
 .send-button:hover {
-  opacity: 0.88;
+  background: var(--accent-hover);
 }
 
 .send-button:disabled {
@@ -467,7 +490,24 @@ button {
   height: 2.4rem;
 }
 
-.attachment-tray button {
+.attachment-preview {
+  width: 2.4rem;
+  height: 2.4rem;
+  overflow: hidden;
+  border-radius: 0.48rem;
+  background: var(--surface-soft);
+  padding: 0;
+  cursor: zoom-in;
+}
+
+.attachment-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.attachment-tray #remove-file {
   display: grid;
   width: 2rem;
   height: 2rem;
@@ -478,7 +518,7 @@ button {
   place-items: center;
 }
 
-.attachment-tray button:hover {
+.attachment-tray #remove-file:hover {
   background: var(--surface-soft);
   color: var(--text);
 }
@@ -627,5 +667,22 @@ label:focus-visible {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .send-button {
+    border: 1px solid ButtonText;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .composer,
+  .message.is-own .message-bubble {
+    border-color: CanvasText;
+  }
+
+  .presence > span:first-child {
+    background: Highlight;
   }
 }

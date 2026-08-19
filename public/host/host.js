@@ -1,5 +1,11 @@
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const POSTS_API = "/api/host/posts";
+const LOCAL_IMAGE_TYPES = new Set([
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 
 const chatStream = document.querySelector("#chat-stream");
 const postGrid = document.querySelector("#post-grid");
@@ -10,6 +16,8 @@ const authorInput = document.querySelector("#author");
 const messageInput = document.querySelector("#message");
 const fileInput = document.querySelector("#file");
 const selectedFile = document.querySelector("#selected-file");
+const selectedFilePreview = document.querySelector("#selected-file-preview");
+const selectedFileImage = document.querySelector("#selected-file-image");
 const selectedFileType = document.querySelector("#selected-file-type");
 const selectedFileName = document.querySelector("#selected-file-name");
 const selectedFileSize = document.querySelector("#selected-file-size");
@@ -28,6 +36,7 @@ let reconnectTimer;
 let reconnectAttempts = 0;
 let isLoadingPosts = false;
 let errorTimer;
+let selectedPreviewUrl;
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -111,7 +120,12 @@ const resizeMessageInput = () => {
 
 const setSelectedFile = (file) => {
   clearFormError();
+  if (selectedPreviewUrl) URL.revokeObjectURL(selectedPreviewUrl);
+  selectedPreviewUrl = undefined;
   pendingFile = file || null;
+  selectedFilePreview.hidden = true;
+  selectedFileImage.removeAttribute("src");
+  selectedFileType.hidden = false;
 
   if (!file) {
     fileInput.value = "";
@@ -130,44 +144,96 @@ const setSelectedFile = (file) => {
   selectedFileType.textContent = fileExtension(file.name);
   selectedFileName.textContent = file.name;
   selectedFileSize.textContent = formatBytes(file.size);
+  if (LOCAL_IMAGE_TYPES.has(file.type.toLowerCase())) {
+    selectedPreviewUrl = URL.createObjectURL(file);
+    selectedFileImage.src = selectedPreviewUrl;
+    selectedFileImage.alt = `Preview of ${file.name}`;
+    selectedFilePreview.hidden = false;
+    selectedFileType.hidden = true;
+  }
   selectedFile.hidden = false;
 };
 
-const createDownloadIcon = () => {
+const createIcon = (pathData) => {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("aria-hidden", "true");
-  path.setAttribute("d", "M12 4v11m0 0-4-4m4 4 4-4M5 20h14");
-  svg.append(path);
+  pathData.forEach((data) => {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", data);
+    svg.append(path);
+  });
   return svg;
 };
 
-const createFileLink = (post) => {
-  const link = document.createElement("a");
+const createFileRow = (post) => {
+  const row = document.createElement("div");
   const type = document.createElement("span");
   const copy = document.createElement("span");
   const name = document.createElement("strong");
   const size = document.createElement("small");
+  const actions = document.createElement("span");
 
-  link.className = "message-file";
-  link.href = post.file.downloadUrl;
-  link.setAttribute("download", post.file.name);
-  link.setAttribute("aria-label", `Download ${post.file.name}`);
+  row.className = "message-file";
   type.className = "file-type";
   type.textContent = fileExtension(post.file.name);
   copy.className = "file-copy";
   name.textContent = post.file.name;
   size.textContent = formatBytes(post.file.size);
   copy.append(name, size);
-  link.append(type, copy, createDownloadIcon());
-  return link;
+  actions.className = "file-actions";
+
+  if (post.file.previewUrl) {
+    const isImage = post.file.type.startsWith("image/");
+    const viewAction = document.createElement(isImage ? "button" : "a");
+    viewAction.className = "file-action";
+    viewAction.setAttribute("aria-label", `View ${post.file.name}`);
+    viewAction.setAttribute("title", "View");
+    viewAction.append(
+      createIcon([
+        "M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z",
+        "M12 9.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5Z",
+      ]),
+    );
+    if (isImage) {
+      viewAction.type = "button";
+      viewAction.addEventListener("click", () => openImage(post));
+    } else {
+      viewAction.href = post.file.previewUrl;
+      viewAction.target = "_blank";
+      viewAction.rel = "noopener noreferrer";
+    }
+    actions.append(viewAction);
+  }
+
+  const downloadAction = document.createElement("a");
+  downloadAction.className = "file-action";
+  downloadAction.href = post.file.downloadUrl;
+  downloadAction.setAttribute("download", post.file.name);
+  downloadAction.setAttribute("aria-label", `Download ${post.file.name}`);
+  downloadAction.setAttribute("title", "Download");
+  downloadAction.append(
+    createIcon(["M12 4v11m0 0-4-4m4 4 4-4M5 20h14"]),
+  );
+  actions.append(downloadAction);
+  row.append(type, copy, actions);
+  return row;
 };
 
 const openImage = (post) => {
   dialogImage.src = post.file.previewUrl;
   dialogImage.alt = `${post.file.name}, shared by ${post.author}`;
   dialogDownload.href = post.file.downloadUrl;
+  dialogDownload.setAttribute("download", post.file.name);
+  imageDialog.showModal();
+};
+
+const openSelectedImage = () => {
+  if (!selectedPreviewUrl || !pendingFile) return;
+  dialogImage.src = selectedPreviewUrl;
+  dialogImage.alt = `Preview of ${pendingFile.name}`;
+  dialogDownload.href = selectedPreviewUrl;
+  dialogDownload.setAttribute("download", pendingFile.name);
   imageDialog.showModal();
 };
 
@@ -198,7 +264,7 @@ const createMessage = (post) => {
     bubble.append(text);
   }
 
-  if (post.file?.previewUrl) {
+  if (post.file?.previewUrl && post.file.type.startsWith("image/")) {
     const preview = document.createElement("button");
     const image = document.createElement("img");
     preview.className = "message-image";
@@ -216,7 +282,7 @@ const createMessage = (post) => {
     bubble.append(preview);
   }
 
-  if (post.file) bubble.append(createFileLink(post));
+  if (post.file) bubble.append(createFileRow(post));
   message.append(meta, bubble);
   return message;
 };
@@ -339,6 +405,7 @@ authorInput.addEventListener("keydown", (event) => {
 
 fileInput.addEventListener("change", () => setSelectedFile(fileInput.files[0]));
 removeFileButton.addEventListener("click", () => setSelectedFile(null));
+selectedFilePreview.addEventListener("click", openSelectedImage);
 
 ["dragenter", "dragover"].forEach((eventName) => {
   postForm.addEventListener(eventName, (event) => {
@@ -410,6 +477,7 @@ imageDialog.addEventListener("click", (event) => {
 imageDialog.addEventListener("close", () => {
   dialogImage.removeAttribute("src");
   dialogDownload.removeAttribute("href");
+  dialogDownload.removeAttribute("download");
 });
 
 document.addEventListener("visibilitychange", () => {
