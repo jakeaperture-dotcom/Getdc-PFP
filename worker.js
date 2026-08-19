@@ -8,10 +8,13 @@ const MAX_REQUEST_BYTES = MAX_UPLOAD_BYTES + 128 * 1024;
 const MAX_AUTHOR_LENGTH = 40;
 const MAX_MESSAGE_LENGTH = 1200;
 const SAFE_PREVIEW_TYPES = new Set([
+  "application/pdf",
   "image/gif",
   "image/jpeg",
   "image/png",
   "image/webp",
+  "text/csv",
+  "text/plain",
 ]);
 const AVATAR_HOSTS = new Set(["cdn.discordapp.com", "media.discordapp.net"]);
 const IMAGE_EXTENSIONS = new Map([
