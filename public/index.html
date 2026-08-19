@@ -5,26 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Grab, view, and download full-size Discord PFPs, profile pictures, and animated avatars using a public Discord user ID. No login required."
+      content="Browse working Discord server templates, preview their channels and roles, and create a new server in one click."
     />
     <meta name="robots" content="index, follow" />
-    <meta name="application-name" content="GetDC PFP" />
-    <meta
-      name="google-adsense-account"
-      content="ca-pub-6560790447495885"
-    />
+    <meta name="application-name" content="GetDC" />
+    <meta name="google-adsense-account" content="ca-pub-6560790447495885" />
     <meta name="color-scheme" content="dark" />
     <script
       async
       src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6560790447495885"
       crossorigin="anonymous"
     ></script>
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="64x64"
-      href="./assets/favicon.png"
-    />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="./styles.css?v=20260809-5" />
+    <link rel="icon" type="image/png" sizes="64x64" href="./assets/favicon.png" />
     <link
       rel="preload"
       href="./assets/fonts/manrope-latin-variable.woff2"
@@ -33,297 +27,211 @@
       crossorigin
     />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="GetDC PFP" />
-    <meta
-      property="og:title"
-      content="Discord PFP Grabber, Downloader & Viewer"
-    />
+    <meta property="og:site_name" content="GetDC" />
+    <meta property="og:title" content="Discord Server Templates — Gaming, Community & More" />
     <meta
       property="og:description"
-      content="Grab, view, and download full-size Discord PFPs and animated avatars using a public Discord user ID."
+      content="Browse working Discord server templates and create a new server with Discord's native template flow."
     />
     <meta property="og:url" content="https://getdcpfp.online/" />
     <link rel="canonical" href="https://getdcpfp.online/" />
-    <title>Discord PFP Grabber, Downloader & Viewer | GetDC PFP</title>
-    <link rel="stylesheet" href="./styles.css" />
-    <script type="module" src="./app.js"></script>
+    <title>Discord Server Templates — Gaming, Community & More | GetDC</title>
+    <script src="./app.js?v=20260809-4" defer></script>
   </head>
 
-  <body>
-    <main>
-      <section
-        aria-labelledby="page-title"
-        class="tool"
-      >
-        <h1 id="page-title">
-          Discord PFP grabber, downloader & viewer
-        </h1>
-
-        <div id="profile" hidden aria-live="polite">
-          <button
-            id="avatar-button"
-            type="button"
-            aria-haspopup="dialog"
-          >
-            <img id="avatar" alt="" />
-          </button>
-          <h2 id="username"></h2>
-        </div>
-
-        <form id="lookup-form" novalidate>
-          <label for="discord-user-id" class="sr-only">
-            Discord user ID
-          </label>
-          <div class="form-row">
-            <button
-              id="lookup-button"
-              type="submit"
-            >
-              Look up
-            </button>
-            <input
-              id="discord-user-id"
-              name="discordUserId"
-              type="text"
-              inputmode="numeric"
-              enterkeyhint="search"
-              maxlength="20"
-              pattern="[0-9]{17,20}"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="Enter a Discord user ID"
-              aria-describedby="lookup-error"
-            />
-          </div>
-          <p
-            id="lookup-error"
-            role="alert"
-            hidden
-          ></p>
-        </form>
-
+  <body class="min-h-screen bg-[var(--discord-canvas)] text-[var(--discord-primary)] antialiased">
+    <header class="border-b border-[var(--discord-border)] bg-[var(--discord-canvas)]">
+      <div class="mx-auto flex min-h-16 w-[calc(100%-2rem)] max-w-6xl items-center justify-between gap-6 sm:w-[calc(100%-3rem)]">
         <a
-          id="download-button"
-          hidden
-          download
-        >
-          <img
-            src="./assets/download-simple.svg"
-            alt=""
-            aria-hidden="true"
-          />
-          Download avatar
-        </a>
-      </section>
+          class="rounded-sm text-lg font-extrabold tracking-[-0.04em] outline-none focus-visible:ring-2 focus-visible:ring-[var(--discord-brand)]"
+          href="./index.html"
+          aria-label="GetDC home"
+        >GetDC</a>
+        <nav class="flex items-center gap-5" aria-label="Main navigation">
+          <a class="text-sm font-bold" aria-current="page" href="./index.html">Templates</a>
+          <a class="hidden text-sm font-semibold text-[var(--discord-muted)] transition-colors hover:text-[var(--discord-primary)] sm:inline" href="#how-it-works">How it works</a>
+          <a class="text-sm font-semibold text-[var(--discord-muted)] transition-colors hover:text-[var(--discord-primary)]" href="./tools/discord-avatar-downloader/index.html">Avatar tool</a>
+        </nav>
+      </div>
+    </header>
 
-      <section class="tutorial" aria-labelledby="tutorial-title">
-        <header class="tutorial-heading">
-          <p class="tutorial-kicker">Quick tutorial</p>
-          <h2 id="tutorial-title">
-            How to download a Discord profile picture
-          </h2>
-          <p class="tutorial-intro">
-            New to Discord user IDs? Follow these three simple steps to find
-            one, look up the profile, and save the full-size avatar.
-          </p>
-        </header>
+    <main class="px-0 pb-24">
+      <section class="overflow-hidden border-b border-[var(--discord-border)] bg-[var(--discord-surface)]">
+        <div class="mx-auto grid w-[calc(100%-2rem)] max-w-6xl items-center gap-16 py-16 sm:w-[calc(100%-3rem)] sm:py-24 lg:grid-cols-[minmax(0,1fr)_minmax(28rem,1fr)] lg:gap-8">
+          <div class="min-w-0">
+            <p class="mb-4 text-xs font-extrabold tracking-[0.12em] text-[var(--discord-brand)] uppercase">
+              Discord server templates
+            </p>
+            <h1 class="max-w-3xl text-4xl leading-tight font-extrabold tracking-[-0.045em] sm:text-5xl">
+              Find a server setup that fits your community.
+            </h1>
+            <p class="mt-5 max-w-2xl text-base leading-7 text-[var(--discord-muted)] sm:text-lg">
+              Search a small, verified catalog, preview what is included, and open
+              the template directly in Discord.
+            </p>
 
-        <div class="tutorial-layout">
-          <figure class="tutorial-player">
-            <div class="tutorial-window">
-              <div class="tutorial-window-bar">
-                <span class="window-dots" aria-hidden="true">
-                  <i></i><i></i><i></i>
-                </span>
-                <span>Quick walkthrough</span>
-                <button
-                  id="tutorial-toggle"
-                  type="button"
-                  aria-pressed="false"
-                >
-                  Pause
-                </button>
-              </div>
+            <form id="template-search-form" class="mt-10 flex max-w-2xl flex-col gap-3 sm:flex-row" role="search">
+              <label class="sr-only" for="template-search">Search templates</label>
+              <input
+                id="template-search"
+                class="h-14 min-w-0 rounded-lg border border-[var(--discord-border-strong)] bg-[var(--discord-canvas)] px-4 text-[var(--discord-primary)] outline-none placeholder:text-[var(--discord-footer)] focus:border-[var(--discord-brand)] focus:ring-2 focus:ring-[var(--discord-brand)]/30 sm:flex-1"
+                type="search"
+                autocomplete="off"
+                placeholder="Search for templates..."
+              />
+              <button
+                class="h-14 rounded-lg bg-[var(--discord-brand)] px-7 font-extrabold text-white transition-colors hover:bg-[var(--discord-brand-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--discord-brand)]"
+                type="submit"
+              >Search</button>
+            </form>
 
-              <div
-                class="demo-flow"
-                role="img"
-                aria-label="Animated walkthrough: copy a Discord user ID, paste it into the lookup field, then download the avatar"
-              >
-                <div class="demo-card demo-copy" aria-hidden="true">
-                  <span class="demo-number">1</span>
-                  <span class="demo-avatar"></span>
-                  <span class="demo-copy-text">
-                    <strong>Discord profile</strong>
-                    <small>Copy User ID</small>
-                  </span>
-                </div>
-
-                <span class="demo-arrow" aria-hidden="true">&rarr;</span>
-
-                <div class="demo-card demo-lookup" aria-hidden="true">
-                  <span class="demo-number">2</span>
-                  <span class="demo-input">974168684291575808</span>
-                  <span class="demo-lookup-button">Look up</span>
-                </div>
-
-                <span class="demo-arrow" aria-hidden="true">&rarr;</span>
-
-                <div class="demo-card demo-download" aria-hidden="true">
-                  <span class="demo-number">3</span>
-                  <span class="demo-download-icon">&darr;</span>
-                  <span>
-                    <strong>Avatar found</strong>
-                    <small>Download avatar</small>
-                  </span>
-                </div>
-              </div>
-
-              <div class="demo-progress" aria-hidden="true">
-                <span></span>
+            <div class="mt-8">
+              <p class="mb-3 text-sm font-bold text-[var(--discord-muted)]">Or browse by category</p>
+              <div class="flex flex-wrap gap-2" aria-label="Filter templates by category">
+                <button class="min-h-10 rounded-full border border-[var(--discord-border)] px-4 text-sm font-bold text-[var(--discord-muted)] transition hover:border-[var(--discord-brand)] hover:text-[var(--discord-primary)] aria-pressed:border-[var(--discord-brand)] aria-pressed:bg-[var(--discord-brand-soft)] aria-pressed:text-[var(--discord-primary)]" type="button" data-template-filter="all" aria-pressed="true">All</button>
+                <button class="min-h-10 rounded-full border border-[var(--discord-border)] px-4 text-sm font-bold text-[var(--discord-muted)] transition hover:border-[var(--discord-brand)] hover:text-[var(--discord-primary)] aria-pressed:border-[var(--discord-brand)] aria-pressed:bg-[var(--discord-brand-soft)] aria-pressed:text-[var(--discord-primary)]" type="button" data-template-filter="community" aria-pressed="false">Community</button>
+                <button class="min-h-10 rounded-full border border-[var(--discord-border)] px-4 text-sm font-bold text-[var(--discord-muted)] transition hover:border-[var(--discord-brand)] hover:text-[var(--discord-primary)] aria-pressed:border-[var(--discord-brand)] aria-pressed:bg-[var(--discord-brand-soft)] aria-pressed:text-[var(--discord-primary)]" type="button" data-template-filter="gaming" aria-pressed="false">Gaming</button>
               </div>
             </div>
-            <figcaption>
-              Copy the ID, paste it above, then download the result.
-            </figcaption>
-          </figure>
+          </div>
 
-          <ol class="tutorial-steps">
-            <li>
-              <span class="step-number">1</span>
-              <div>
-                <h3>Enable Developer Mode</h3>
-                <p>
-                  Open <strong>User Settings</strong>, choose
-                  <strong>Advanced</strong>, and turn on
-                  <strong>Developer Mode</strong>. You only need to do this
-                  once.
-                </p>
-              </div>
-            </li>
-            <li>
-              <span class="step-number">2</span>
-              <div>
-                <h3>Copy the user ID</h3>
-                <p>
-                  Right-click the person, or open their profile menu on
-                  mobile, then choose <strong>Copy User ID</strong>.
-                </p>
-              </div>
-            </li>
-            <li>
-              <span class="step-number">3</span>
-              <div>
-                <h3>Look up and download</h3>
-                <p>
-                  Paste the ID into the field above and select
-                  <strong>Look up</strong>. Open the avatar to view it or use
-                  <strong>Download avatar</strong> to save it.
-                </p>
-              </div>
-            </li>
-          </ol>
+          <div id="template-orbit" class="template-orbit" aria-hidden="true">
+            <div class="template-orbit-track"></div>
+            <div class="template-orbit-center">
+              <span>GetDC</span>
+              <strong>Server templates</strong>
+              <small>Browse the catalog</small>
+            </div>
+
+            <div class="template-orbit-card" data-orbit-card>
+              <div class="template-orbit-card-heading"><span>SC</span><strong>Structured Community</strong></div>
+              <p># welcome</p><p># general</p><small>+ 22 channels</small>
+            </div>
+            <div class="template-orbit-card" data-orbit-card>
+              <div class="template-orbit-card-heading"><span>FF</span><strong>Friends &amp; Family</strong></div>
+              <p># everyday-chat</p><p># games</p><small>+ 5 channels</small>
+            </div>
+            <div class="template-orbit-card" data-orbit-card>
+              <div class="template-orbit-card-heading"><span>GH</span><strong>Gaming Hub</strong></div>
+              <p># looking-for-group</p><p># clips</p><small>Gaming setup</small>
+            </div>
+            <div class="template-orbit-card" data-orbit-card>
+              <div class="template-orbit-card-heading"><span>SS</span><strong>Study Space</strong></div>
+              <p># resources</p><p># focus-room</p><small>Study setup</small>
+            </div>
+            <div class="template-orbit-card" data-orbit-card data-orbit-secondary>
+              <div class="template-orbit-card-heading"><span>CH</span><strong>Creator Hub</strong></div>
+              <p># announcements</p><p># feedback</p><small>Creator setup</small>
+            </div>
+            <div class="template-orbit-card" data-orbit-card data-orbit-secondary>
+              <div class="template-orbit-card-heading"><span>ET</span><strong>Esports Team</strong></div>
+              <p># scrims</p><p># strategy</p><small>Team setup</small>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="mx-auto w-[calc(100%-2rem)] max-w-6xl sm:w-[calc(100%-3rem)]">
+        <div class="flex items-center justify-between gap-6 pt-16">
+          <p id="result-count" class="text-sm font-semibold text-[var(--discord-muted)]" aria-live="polite">2 templates</p>
         </div>
 
-        <aside class="how-it-works" aria-labelledby="how-it-works-title">
-          <h3 id="how-it-works-title">How it works</h3>
-          <div class="how-it-works-copy">
-            <p>
-              When you select <strong>Look up</strong>, GetDC PFP sends the
-              public user ID to our server. The server requests the public
-              profile data from the lookup provider and returns the
-              Discord-hosted avatar address.
-            </p>
-            <p>
-              Your Discord account stays separate. We never ask for a login,
-              password, or user token, and the tool cannot access private
-              messages.
-            </p>
+        <section class="py-12 sm:py-16" data-template-section aria-labelledby="top-templates-title">
+          <header class="mb-8 border-b border-[var(--discord-border)] pb-6">
+            <h2 id="top-templates-title" class="text-3xl font-extrabold tracking-[-0.035em]">Top templates</h2>
+            <p class="mt-2 text-sm text-[var(--discord-muted)]">The most-used setup in the starter catalog.</p>
+          </header>
+
+          <div class="grid gap-6 lg:grid-cols-2">
+            <article class="flex min-w-0 flex-col rounded-xl border border-[var(--discord-border)] bg-[var(--discord-surface)] p-6 sm:p-8" data-template-card data-category="gaming">
+              <div class="flex items-center justify-between gap-4 text-xs font-bold text-[var(--discord-footer)]">
+                <span class="text-[var(--discord-brand)] uppercase">Gaming · Community</span>
+                <span>233K+ uses</span>
+              </div>
+              <h3 class="mt-7 text-2xl font-extrabold tracking-[-0.03em]">Structured Community</h3>
+              <p class="mt-4 leading-7 text-[var(--discord-muted)]">
+                Announcements, support, suggestions, bot commands, staff areas,
+                member roles, and voice channels in one detailed setup.
+              </p>
+              <dl class="mt-7 flex gap-8 border-y border-[var(--discord-border)] py-5 text-sm">
+                <div><dt class="text-[var(--discord-footer)]">Channels</dt><dd class="mt-1 font-extrabold">24</dd></div>
+                <div><dt class="text-[var(--discord-footer)]">Roles</dt><dd class="mt-1 font-extrabold">22</dd></div>
+                <div><dt class="text-[var(--discord-footer)]">Creator</dt><dd class="mt-1 font-extrabold">srnyx</dd></div>
+              </dl>
+              <details class="my-6">
+                <summary class="cursor-pointer text-sm font-bold text-[var(--discord-muted)] hover:text-[var(--discord-primary)]">Preview server layout</summary>
+                <div class="mt-4 border-l-2 border-[var(--discord-brand)] pl-4 text-sm leading-6 text-[var(--discord-muted)]">
+                  <p><strong class="text-[var(--discord-primary)]">Public:</strong> rules, information, general, support, suggestions</p>
+                  <p class="mt-2"><strong class="text-[var(--discord-primary)]">Staff:</strong> reports, logs, mod chat, admin chat</p>
+                </div>
+              </details>
+              <a class="mt-auto inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--discord-brand)] px-5 font-extrabold text-white transition-colors hover:bg-[var(--discord-brand-hover)]" href="https://discord.new/r2uhQjNFKYHA" target="_blank" rel="noopener noreferrer">Use template <span class="ml-2" aria-hidden="true">↗</span></a>
+            </article>
           </div>
-        </aside>
-      </section>
+        </section>
 
-      <section class="coming-soon" aria-labelledby="coming-soon-title">
-        <header class="coming-soon-heading">
-          <h2 id="coming-soon-title">Coming soon</h2>
-          <p>More useful Discord download tools are planned.</p>
-        </header>
+        <section class="border-t border-[var(--discord-border)] py-12 sm:py-16" data-template-section aria-labelledby="new-templates-title">
+          <header class="mb-8 border-b border-[var(--discord-border)] pb-6">
+            <h2 id="new-templates-title" class="text-3xl font-extrabold tracking-[-0.035em]">New templates</h2>
+            <p class="mt-2 text-sm text-[var(--discord-muted)]">Recently added to the GetDC catalog.</p>
+          </header>
 
-        <ul class="coming-soon-list">
-          <li>
-            <h3>Size and format options</h3>
-            <p>
-              Choose a resolution from 128px to 4096px and download as PNG,
-              JPG, WebP, or GIF when the avatar is animated.
-            </p>
-          </li>
-          <li>
-            <h3>Discord banner downloader</h3>
-            <p>
-              Look up a public profile banner, open it at full size, and save
-              it directly to your device.
-            </p>
-          </li>
-          <li>
-            <h3>Discord emoji downloader</h3>
-            <p>
-              Paste a custom emoji code, ID, or link to download static and
-              animated Discord emojis.
-            </p>
-          </li>
-          <li>
-            <h3>Server icon downloader</h3>
-            <p>
-              Paste a Discord server invite to view and download its public
-              server icon in the best available quality.
-            </p>
-          </li>
-        </ul>
-      </section>
+          <div class="grid gap-6 lg:grid-cols-2">
+            <article class="flex min-w-0 flex-col rounded-xl border border-[var(--discord-border)] bg-[var(--discord-surface)] p-6 sm:p-8" data-template-card data-category="community">
+              <div class="flex items-center justify-between gap-4 text-xs font-bold text-[var(--discord-footer)]">
+                <span class="text-[var(--discord-brand)] uppercase">Community · Friends</span>
+                <span>69K+ uses</span>
+              </div>
+              <h3 class="mt-7 text-2xl font-extrabold tracking-[-0.03em]">Friends &amp; Family</h3>
+              <p class="mt-4 leading-7 text-[var(--discord-muted)]">
+                A lightweight social server with separate spaces for everyday
+                chat, games, music, streaming, and voice calls.
+              </p>
+              <dl class="mt-7 flex gap-8 border-y border-[var(--discord-border)] py-5 text-sm">
+                <div><dt class="text-[var(--discord-footer)]">Channels</dt><dd class="mt-1 font-extrabold">7</dd></div>
+                <div><dt class="text-[var(--discord-footer)]">Roles</dt><dd class="mt-1 font-extrabold">1</dd></div>
+                <div><dt class="text-[var(--discord-footer)]">Creator</dt><dd class="mt-1 font-extrabold">discordapp</dd></div>
+              </dl>
+              <details class="my-6">
+                <summary class="cursor-pointer text-sm font-bold text-[var(--discord-muted)] hover:text-[var(--discord-primary)]">Preview server layout</summary>
+                <div class="mt-4 border-l-2 border-[var(--discord-brand)] pl-4 text-sm leading-6 text-[var(--discord-muted)]">
+                  <p><strong class="text-[var(--discord-primary)]">Text:</strong> general, games, music</p>
+                  <p class="mt-2"><strong class="text-[var(--discord-primary)]">Voice:</strong> Lounge, Stream Room</p>
+                </div>
+              </details>
+              <a class="mt-auto inline-flex min-h-12 items-center justify-center rounded-lg bg-[var(--discord-brand)] px-5 font-extrabold text-white transition-colors hover:bg-[var(--discord-brand-hover)]" href="https://discord.new/hgM48av5Q69A" target="_blank" rel="noopener noreferrer">Use template <span class="ml-2" aria-hidden="true">↗</span></a>
+            </article>
+          </div>
+        </section>
+
+        <div id="empty-state" class="rounded-xl border border-dashed border-[var(--discord-border-strong)] px-8 py-16 text-center" hidden>
+          <h2 class="text-xl font-bold">No matching templates</h2>
+          <p class="mt-2 text-[var(--discord-muted)]">Try another search or category.</p>
+        </div>
+
+        <section id="how-it-works" class="mt-8 border-y border-[var(--discord-border)] py-16" aria-labelledby="how-title">
+          <div class="grid gap-10 md:grid-cols-[0.9fr_1.1fr] md:gap-16">
+            <div>
+              <p class="mb-3 text-xs font-extrabold tracking-[0.12em] text-[var(--discord-brand)] uppercase">How it works</p>
+              <h2 id="how-title" class="text-3xl font-extrabold tracking-[-0.035em]">Discord creates the server.</h2>
+            </div>
+            <ol class="space-y-5 text-[var(--discord-muted)]">
+              <li><strong class="mr-3 text-[var(--discord-primary)]">01</strong>Choose a template.</li>
+              <li><strong class="mr-3 text-[var(--discord-primary)]">02</strong>Review it on Discord.</li>
+              <li><strong class="mr-3 text-[var(--discord-primary)]">03</strong>Name your new server and create it.</li>
+            </ol>
+          </div>
+        </section>
+      </div>
     </main>
 
-    <dialog id="avatar-dialog" aria-label="Full-size Discord avatar">
-      <button
-        id="avatar-dialog-close"
-        type="button"
-        aria-label="Close full-size avatar"
-      >
-        &times;
-      </button>
-      <img id="full-avatar" alt="" />
-    </dialog>
-
-    <footer>
-      <p>Independent tool · Not affiliated with or endorsed by Discord.</p>
-      <details>
-        <summary>
-          Privacy & terms
-        </summary>
-        <div class="terms">
-          <p>
-            The Discord user ID you enter is sent to our server and
-            <a
-              href="https://skit-utils.vercel.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >Skit Utils</a>
-            only to retrieve public profile information. We do not store
-            searches in our own database. Hosting, upstream, and advertising
-            providers may retain technical logs. Google AdSense may use
-            cookies or similar technologies to deliver, measure, and protect
-            advertising. See
-            <a
-              href="https://policies.google.com/technologies/ads"
-              target="_blank"
-              rel="noopener noreferrer"
-            >Google's advertising policies</a>.
-          </p>
-          <p>
-            Do not use this service for bulk collection, harassment,
-            impersonation, or unlawful activity. The service is provided as-is
-            and may change or become unavailable. Discord and related marks
-            belong to Discord Inc.
-          </p>
+    <footer class="mx-auto w-[calc(100%-2rem)] max-w-6xl px-0 pb-8 text-center text-xs text-[var(--discord-footer)] sm:w-[calc(100%-3rem)]">
+      <p>Independent directory · Not affiliated with or endorsed by Discord.</p>
+      <details class="mx-auto mt-2 max-w-xl">
+        <summary class="cursor-pointer underline decoration-[var(--discord-border)] underline-offset-4">Privacy &amp; terms</summary>
+        <div class="mt-3 rounded-lg border border-[var(--discord-border)] bg-[var(--discord-surface)] p-4 text-left leading-5">
+          <p>GetDC links to Discord's native template pages. We do not receive your Discord login or the contents of servers you create.</p>
+          <p class="mt-3">Template names and structures belong to their respective creators and may become unavailable.</p>
         </div>
       </details>
     </footer>

@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Grab, view, and download full-size Discord PFPs, profile pictures, and animated avatars using a public Discord user ID. No login required."
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="application-name" content="GetDC PFP" />
+    <meta
+      name="google-adsense-account"
+      content="ca-pub-6560790447495885"
+    />
+    <meta name="color-scheme" content="dark" />
+    <script
+      async
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6560790447495885"
+      crossorigin="anonymous"
+    ></script>
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="64x64"
+      href="../../assets/favicon.png"
+    />
+    <link
+      rel="preload"
+      href="../../assets/fonts/manrope-latin-variable.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="GetDC PFP" />
+    <meta
+      property="og:title"
+      content="Discord PFP Grabber, Downloader & Viewer"
+    />
+    <meta
+      property="og:description"
+      content="Grab, view, and download full-size Discord PFPs and animated avatars using a public Discord user ID."
+    />
+    <meta
+      property="og:url"
+      content="https://getdcpfp.online/tools/discord-avatar-downloader/"
+    />
+    <link
+      rel="canonical"
+      href="https://getdcpfp.online/tools/discord-avatar-downloader/"
+    />
+    <title>Discord PFP Grabber, Downloader & Viewer | GetDC PFP</title>
+    <link rel="stylesheet" href="../../styles.css" />
+    <script type="module" src="../../avatar.js"></script>
+  </head>
+
+  <body>
+    <header class="site-header">
+      <a class="brand" href="../../index.html">GetDC</a>
+      <nav aria-label="Main navigation">
+        <a href="../../index.html">Server templates</a>
+        <a aria-current="page" href="./index.html">
+          Avatar tool
+        </a>
+      </nav>
+    </header>
+    <main>
+      <section
+        aria-labelledby="page-title"
+        class="tool"
+      >
+        <h1 id="page-title">
+          Discord PFP grabber, downloader & viewer
+        </h1>
+
+        <div id="profile" hidden aria-live="polite">
+          <button
+            id="avatar-button"
+            type="button"
+            aria-haspopup="dialog"
+          >
+            <img id="avatar" alt="" />
+          </button>
+          <h2 id="username"></h2>
+        </div>
+
+        <form id="lookup-form" novalidate>
+          <label for="discord-user-id" class="sr-only">
+            Discord user ID
+          </label>
+          <div class="form-row">
+            <button
+              id="lookup-button"
+              type="submit"
+            >
+              Look up
+            </button>
+            <input
+              id="discord-user-id"
+              name="discordUserId"
+              type="text"
+              inputmode="numeric"
+              enterkeyhint="search"
+              maxlength="20"
+              pattern="[0-9]{17,20}"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Enter a Discord user ID"
+              aria-describedby="lookup-error"
+            />
+          </div>
+          <p
+            id="lookup-error"
+            role="alert"
+            hidden
+          ></p>
+        </form>
+
+        <a
+          id="download-button"
+          hidden
+          download
+        >
+          <img
+            src="../../assets/download-simple.svg"
+            alt=""
+            aria-hidden="true"
+          />
+          Download avatar
+        </a>
+      </section>
+
+      <section class="tutorial" aria-labelledby="tutorial-title">
+        <header class="tutorial-heading">
+          <p class="tutorial-kicker">Quick tutorial</p>
+          <h2 id="tutorial-title">
+            How to download a Discord profile picture
+          </h2>
+          <p class="tutorial-intro">
+            New to Discord user IDs? Follow these three simple steps to find
+            one, look up the profile, and save the full-size avatar.
+          </p>
+        </header>
+
+        <div class="tutorial-layout">
+          <figure class="tutorial-player">
+            <div class="tutorial-window">
+              <div class="tutorial-window-bar">
+                <span class="window-dots" aria-hidden="true">
+                  <i></i><i></i><i></i>
+                </span>
+                <span>Quick walkthrough</span>
+                <button
+                  id="tutorial-toggle"
+                  type="button"
+                  aria-pressed="false"
+                >
+                  Pause
+                </button>
+              </div>
+
+              <div
+                class="demo-flow"
+                role="img"
+                aria-label="Animated walkthrough: copy a Discord user ID, paste it into the lookup field, then download the avatar"
+              >
+                <div class="demo-card demo-copy" aria-hidden="true">
+                  <span class="demo-number">1</span>
+                  <span class="demo-avatar"></span>
+                  <span class="demo-copy-text">
+                    <strong>Discord profile</strong>
+                    <small>Copy User ID</small>
+                  </span>
+                </div>
+
+                <span class="demo-arrow" aria-hidden="true">&rarr;</span>
+
+                <div class="demo-card demo-lookup" aria-hidden="true">
+                  <span class="demo-number">2</span>
+                  <span class="demo-input">974168684291575808</span>
+                  <span class="demo-lookup-button">Look up</span>
+                </div>
+
+                <span class="demo-arrow" aria-hidden="true">&rarr;</span>
+
+                <div class="demo-card demo-download" aria-hidden="true">
+                  <span class="demo-number">3</span>
+                  <span class="demo-download-icon">&darr;</span>
+                  <span>
+                    <strong>Avatar found</strong>
+                    <small>Download avatar</small>
+                  </span>
+                </div>
+              </div>
+
+              <div class="demo-progress" aria-hidden="true">
+                <span></span>
+              </div>
+            </div>
+            <figcaption>
+              Copy the ID, paste it above, then download the result.
+            </figcaption>
+          </figure>
+
+          <ol class="tutorial-steps">
+            <li>
+              <span class="step-number">1</span>
+              <div>
+                <h3>Enable Developer Mode</h3>
+                <p>
+                  Open <strong>User Settings</strong>, choose
+                  <strong>Advanced</strong>, and turn on
+                  <strong>Developer Mode</strong>. You only need to do this
+                  once.
+                </p>
+              </div>
+            </li>
+            <li>
+              <span class="step-number">2</span>
+              <div>
+                <h3>Copy the user ID</h3>
+                <p>
+                  Right-click the person, or open their profile menu on
+                  mobile, then choose <strong>Copy User ID</strong>.
+                </p>
+              </div>
+            </li>
+            <li>
+              <span class="step-number">3</span>
+              <div>
+                <h3>Look up and download</h3>
+                <p>
+                  Paste the ID into the field above and select
+                  <strong>Look up</strong>. Open the avatar to view it or use
+                  <strong>Download avatar</strong> to save it.
+                </p>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <aside class="how-it-works" aria-labelledby="how-it-works-title">
+          <h3 id="how-it-works-title">How it works</h3>
+          <div class="how-it-works-copy">
+            <p>
+              When you select <strong>Look up</strong>, GetDC PFP sends the
+              public user ID to our server. The server requests the public
+              profile data from the lookup provider and returns the
+              Discord-hosted avatar address.
+            </p>
+            <p>
+              Your Discord account stays separate. We never ask for a login,
+              password, or user token, and the tool cannot access private
+              messages.
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="coming-soon" aria-labelledby="coming-soon-title">
+        <header class="coming-soon-heading">
+          <h2 id="coming-soon-title">Coming soon</h2>
+          <p>More useful Discord download tools are planned.</p>
+        </header>
+
+        <ul class="coming-soon-list">
+          <li>
+            <h3>Size and format options</h3>
+            <p>
+              Choose a resolution from 128px to 4096px and download as PNG,
+              JPG, WebP, or GIF when the avatar is animated.
+            </p>
+          </li>
+          <li>
+            <h3>Discord banner downloader</h3>
+            <p>
+              Look up a public profile banner, open it at full size, and save
+              it directly to your device.
+            </p>
+          </li>
+          <li>
+            <h3>Discord emoji downloader</h3>
+            <p>
+              Paste a custom emoji code, ID, or link to download static and
+              animated Discord emojis.
+            </p>
+          </li>
+          <li>
+            <h3>Server icon downloader</h3>
+            <p>
+              Paste a Discord server invite to view and download its public
+              server icon in the best available quality.
+            </p>
+          </li>
+        </ul>
+      </section>
+    </main>
+
+    <dialog id="avatar-dialog" aria-label="Full-size Discord avatar">
+      <button
+        id="avatar-dialog-close"
+        type="button"
+        aria-label="Close full-size avatar"
+      >
+        &times;
+      </button>
+      <img id="full-avatar" alt="" />
+    </dialog>
+
+    <footer>
+      <p>Independent tool · Not affiliated with or endorsed by Discord.</p>
+      <details>
+        <summary>
+          Privacy & terms
+        </summary>
+        <div class="terms">
+          <p>
+            The Discord user ID you enter is sent to our server and
+            <a
+              href="https://skit-utils.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Skit Utils</a>
+            only to retrieve public profile information. We do not store
+            searches in our own database. Hosting, upstream, and advertising
+            providers may retain technical logs. Google AdSense may use
+            cookies or similar technologies to deliver, measure, and protect
+            advertising. See
+            <a
+              href="https://policies.google.com/technologies/ads"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Google's advertising policies</a>.
+          </p>
+          <p>
+            Do not use this service for bulk collection, harassment,
+            impersonation, or unlawful activity. The service is provided as-is
+            and may change or become unavailable. Discord and related marks
+            belong to Discord Inc.
+          </p>
+        </div>
+      </details>
+    </footer>
+  </body>
+</html>

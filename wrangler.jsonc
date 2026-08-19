@@ -5,8 +5,28 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/", "/*.html", "/api/*", "/healthz"]
+    "run_worker_first": ["/", "/host", "/host/*", "/*.html", "/api/*", "/healthz"]
   },
+  "r2_buckets": [
+    {
+      "binding": "HOST_FILES",
+      "bucket_name": "getdc-host-files"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "POST_HUB",
+        "class_name": "PostHub"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["PostHub"]
+    }
+  ],
   "ratelimits": [
     {
       "name": "API_RATE_LIMITER",
