@@ -13,6 +13,7 @@ const chatStream = document.querySelector("#chat-stream");
 const postGrid = document.querySelector("#post-grid");
 const feedStatus = document.querySelector("#feed-status");
 const liveStatus = document.querySelector("#live-status");
+const typingStatus = document.querySelector("#typing-status");
 const postForm = document.querySelector("#post-form");
 const authorInput = document.querySelector("#author");
 const messageInput = document.querySelector("#message");
@@ -25,6 +26,10 @@ const selectedFileName = document.querySelector("#selected-file-name");
 const selectedFileSize = document.querySelector("#selected-file-size");
 const removeFileButton = document.querySelector("#remove-file");
 const formError = document.querySelector("#form-error");
+const replyTray = document.querySelector("#reply-tray");
+const replyAuthor = document.querySelector("#reply-author");
+const replyMessage = document.querySelector("#reply-message");
+const cancelReplyButton = document.querySelector("#cancel-reply");
 const postButton = document.querySelector("#post-button");
 const imageDialog = document.querySelector("#image-dialog");
 const dialogImage = document.querySelector("#dialog-image");
@@ -40,6 +45,9 @@ const knowledgeFileName = document.querySelector("#knowledge-file-name");
 const indexDocumentButton = document.querySelector("#index-document");
 const knowledgeStatus = document.querySelector("#knowledge-status");
 const knowledgeList = document.querySelector("#knowledge-list");
+const messageMenu = document.querySelector("#message-menu");
+const replyMessageAction = document.querySelector("#reply-message-action");
+const deleteMessageAction = document.querySelector("#delete-message-action");
 
 let posts = [];
 let pendingFile = null;
@@ -51,6 +59,35 @@ let errorTimer;
 let selectedPreviewUrl;
 let knowledgeFile = null;
 let knowledgeTimer;
+let replyingTo = null;
+let menuPost = null;
+let longPressTimer;
+let lastTypingSentAt = 0;
+let typingStopTimer;
+const remoteTypers = new Map();
+const typingId = crypto.randomUUID();
+
+const createDeviceToken = () => {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return [...bytes]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+};
+
+const getDeviceToken = () => {
+  try {
+    const stored = localStorage.getItem("class-wall-device");
+    if (/^[a-f0-9]{64}$/i.test(stored || "")) return stored;
+    const token = createDeviceToken();
+    localStorage.setItem("class-wall-device", token);
+    return token;
+  } catch {
+    return createDeviceToken();
+  }
+};
+
+const deviceToken = getDeviceToken();
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -326,14 +363,74 @@ const openSelectedImage = () => {
   imageDialog.showModal();
 };
 
+const closeMessageMenu = () => {
+  messageMenu.hidden = true;
+  menuPost = null;
+};
+
+const setReply = (post) => {
+  replyingTo = post;
+  replyAuthor.textContent = post.author;
+  replyMessage.textContent =
+    post.message?.replace(/\s+/g, " ").trim() || post.file?.name || "Attachment";
+  replyTray.hidden = false;
+  closeMessageMenu();
+  messageInput.focus();
+};
+
+const clearReply = () => {
+  replyingTo = null;
+  replyTray.hidden = true;
+  replyAuthor.textContent = "";
+  replyMessage.textContent = "";
+};
+
+const focusMessage = (postId) => {
+  const target = document.querySelector(`[data-post-id="${CSS.escape(postId)}"]`);
+  if (!target) return;
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  target.classList.remove("is-highlighted");
+  window.requestAnimationFrame(() => target.classList.add("is-highlighted"));
+  window.setTimeout(() => target.classList.remove("is-highlighted"), 1400);
+};
+
+const createReplyQuote = (reply) => {
+  const quote = document.createElement("button");
+  const author = document.createElement("strong");
+  const text = document.createElement("span");
+  quote.className = "message-reply";
+  quote.type = "button";
+  quote.title = "Go to message";
+  author.textContent = reply.author;
+  text.textContent = reply.message;
+  quote.append(author, text);
+  quote.addEventListener("click", () => focusMessage(reply.id));
+  return quote;
+};
+
+const openMessageMenu = (post, clientX, clientY) => {
+  menuPost = post;
+  deleteMessageAction.hidden = !(
+    post.canDelete || fridayAdminKey.value.trim()
+  );
+  messageMenu.hidden = false;
+  messageMenu.style.left = "0";
+  messageMenu.style.top = "0";
+  const bounds = messageMenu.getBoundingClientRect();
+  const left = Math.min(clientX, window.innerWidth - bounds.width - 8);
+  const top = Math.min(clientY, window.innerHeight - bounds.height - 8);
+  messageMenu.style.left = `${Math.max(8, left)}px`;
+  messageMenu.style.top = `${Math.max(8, top)}px`;
+  replyMessageAction.focus({ preventScroll: true });
+};
+
 const createMessage = (post) => {
   const message = document.createElement("article");
   const meta = document.createElement("div");
   const author = document.createElement("strong");
   const time = document.createElement("time");
   const bubble = document.createElement("div");
-  const currentName = authorInput.value.trim();
-  const isOwn = !post.bot && Boolean(currentName) && post.author === currentName;
+  const isOwn = !post.bot && post.canDelete;
 
   message.className = `message${isOwn ? " is-own" : ""}${post.bot ? " is-bot" : ""}`;
   message.dataset.postId = post.id;
@@ -345,6 +442,8 @@ const createMessage = (post) => {
   time.textContent = relativeTime(post.createdAt);
   meta.append(author, time);
   bubble.className = "message-bubble";
+
+  if (post.reply) bubble.append(createReplyQuote(post.reply));
 
   if (post.message) {
     appendMessageContent(bubble, post.message);
@@ -370,6 +469,20 @@ const createMessage = (post) => {
 
   if (post.file) bubble.append(createFileRow(post));
   message.append(meta, bubble);
+  message.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    openMessageMenu(post, event.clientX, event.clientY);
+  });
+  message.addEventListener("pointerdown", (event) => {
+    if (event.pointerType !== "touch") return;
+    window.clearTimeout(longPressTimer);
+    longPressTimer = window.setTimeout(() => {
+      openMessageMenu(post, event.clientX, event.clientY);
+    }, 550);
+  });
+  ["pointerup", "pointercancel", "pointermove"].forEach((eventName) => {
+    message.addEventListener(eventName, () => window.clearTimeout(longPressTimer));
+  });
   return message;
 };
 
@@ -399,7 +512,10 @@ const loadPosts = async ({ silent = false } = {}) => {
   try {
     const response = await fetch(POSTS_API, {
       cache: "no-store",
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "X-Host-Device": deviceToken,
+      },
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !Array.isArray(data.posts)) {
@@ -427,6 +543,58 @@ const setLiveState = (state, label) => {
   liveStatus.lastElementChild.textContent = label;
 };
 
+const renderTypingStatus = () => {
+  const now = Date.now();
+  for (const [id, typer] of remoteTypers) {
+    if (typer.expiresAt <= now) remoteTypers.delete(id);
+  }
+  const names = [...new Set([...remoteTypers.values()].map((typer) => typer.name))];
+  if (!names.length) {
+    typingStatus.hidden = true;
+    typingStatus.textContent = "";
+    return;
+  }
+  typingStatus.textContent =
+    names.length === 1
+      ? `${names[0]} is typing…`
+      : names.length === 2
+        ? `${names[0]} and ${names[1]} are typing…`
+        : "Several people are typing…";
+  typingStatus.hidden = false;
+};
+
+const receiveTyping = (update) => {
+  if (!update.id || !update.name || update.id === typingId) return;
+  if (update.active) {
+    remoteTypers.set(update.id, {
+      name: update.name,
+      expiresAt: Date.now() + 4200,
+    });
+  } else {
+    remoteTypers.delete(update.id);
+  }
+  renderTypingStatus();
+};
+
+const sendTyping = (active) => {
+  if (socket?.readyState !== WebSocket.OPEN) return;
+  const name = authorInput.value.trim();
+  if (active && !name) return;
+  socket.send(JSON.stringify({ type: "typing", id: typingId, name, active }));
+  if (active) lastTypingSentAt = Date.now();
+};
+
+const updateOwnTyping = () => {
+  window.clearTimeout(typingStopTimer);
+  const active = Boolean(messageInput.value.trim() && authorInput.value.trim());
+  if (active && Date.now() - lastTypingSentAt > 1100) sendTyping(true);
+  if (active) {
+    typingStopTimer = window.setTimeout(() => sendTyping(false), 1800);
+  } else {
+    sendTyping(false);
+  }
+};
+
 const connectLiveUpdates = () => {
   window.clearTimeout(reconnectTimer);
   socket?.close();
@@ -439,6 +607,7 @@ const connectLiveUpdates = () => {
   socket.addEventListener("open", () => {
     reconnectAttempts = 0;
     setLiveState("live", "Live");
+    updateOwnTyping();
   });
 
   socket.addEventListener("message", (event) => {
@@ -446,6 +615,12 @@ const connectLiveUpdates = () => {
     try {
       const update = JSON.parse(event.data);
       if (update.type === "post.created") loadPosts({ silent: true });
+      if (update.type === "post.deleted") {
+        posts = posts.filter((post) => post.id !== update.postId);
+        if (replyingTo?.id === update.postId) clearReply();
+        renderPosts();
+      }
+      if (update.type === "typing") receiveTyping(update);
     } catch {
       // Ignore messages that are not wall events.
     }
@@ -453,6 +628,8 @@ const connectLiveUpdates = () => {
 
   socket.addEventListener("close", () => {
     setLiveState("offline", "Reconnecting");
+    remoteTypers.clear();
+    renderTypingStatus();
     reconnectAttempts += 1;
     const delay = Math.min(30_000, 1000 * 2 ** reconnectAttempts);
     reconnectTimer = window.setTimeout(connectLiveUpdates, delay);
@@ -464,6 +641,7 @@ const connectLiveUpdates = () => {
 messageInput.addEventListener("input", () => {
   clearFormError();
   resizeMessageInput();
+  updateOwnTyping();
 });
 
 const looksLikeEditorCode = (html, text) => {
@@ -503,7 +681,7 @@ authorInput.addEventListener("input", () => {
   } catch {
     // Remembering the name is optional.
   }
-  renderPosts();
+  updateOwnTyping();
 });
 
 authorInput.addEventListener("keydown", (event) => {
@@ -556,9 +734,12 @@ postForm.addEventListener("submit", async (event) => {
     formData.set("author", authorInput.value);
     formData.set("message", messageInput.value);
     if (file) formData.set("file", file, file.name);
+    if (replyingTo) formData.set("replyTo", replyingTo.id);
+    sendTyping(false);
 
     const response = await fetch(POSTS_API, {
       method: "POST",
+      headers: { "X-Host-Device": deviceToken },
       body: formData,
     });
     const data = await response.json().catch(() => ({}));
@@ -566,10 +747,13 @@ postForm.addEventListener("submit", async (event) => {
       throw new Error(data.error || "Could not send.");
     }
 
-    posts = [data.post, ...posts.filter((post) => post.id !== data.post.id)];
+    posts = [data.post, ...posts.filter((post) => post.id !== data.post.id)].sort(
+      (left, right) => new Date(right.createdAt) - new Date(left.createdAt),
+    );
     messageInput.value = "";
     resizeMessageInput();
     setSelectedFile(null);
+    clearReply();
     renderPosts({ scroll: true });
     messageInput.focus();
   } catch (error) {
@@ -578,6 +762,39 @@ postForm.addEventListener("submit", async (event) => {
     postButton.disabled = false;
     postForm.setAttribute("aria-busy", "false");
   }
+});
+
+cancelReplyButton.addEventListener("click", clearReply);
+replyMessageAction.addEventListener("click", () => {
+  if (menuPost) setReply(menuPost);
+});
+
+deleteMessageAction.addEventListener("click", async () => {
+  const post = menuPost;
+  if (!post) return;
+  closeMessageMenu();
+  const headers = { "X-Host-Device": deviceToken };
+  const adminKey = fridayAdminKey.value.trim();
+  if (adminKey) headers["X-Friday-Admin"] = adminKey;
+  try {
+    const response = await fetch(`${POSTS_API}/${post.id}`, {
+      method: "DELETE",
+      headers,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Could not delete message.");
+    posts = posts.filter((item) => item.id !== post.id);
+    if (replyingTo?.id === post.id) clearReply();
+    renderPosts();
+  } catch (error) {
+    showFormError(
+      error instanceof Error ? error.message : "Could not delete message.",
+    );
+  }
+});
+
+document.addEventListener("pointerdown", (event) => {
+  if (!messageMenu.hidden && !messageMenu.contains(event.target)) closeMessageMenu();
 });
 
 closeDialogButton.addEventListener("click", () => imageDialog.close());
@@ -734,6 +951,10 @@ fridayAdminKey.addEventListener("input", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !messageMenu.hidden) {
+    closeMessageMenu();
+    return;
+  }
   if (event.code === "Numpad0" && !event.repeat) {
     event.preventDefault();
     toggleCompactMode();
@@ -766,11 +987,14 @@ window.setInterval(() => {
   });
 }, 30_000);
 
+window.setInterval(renderTypingStatus, 1000);
+
 window.setInterval(() => {
   if (!document.hidden && socket?.readyState !== WebSocket.OPEN) {
     loadPosts({ silent: true });
   }
 }, 15_000);
+window.addEventListener("pagehide", () => sendTyping(false));
 resizeMessageInput();
 loadPosts();
 connectLiveUpdates();

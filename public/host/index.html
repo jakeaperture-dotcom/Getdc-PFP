@@ -14,9 +14,9 @@
       type="font/woff2"
       crossorigin
     />
-    <link rel="stylesheet" href="./host.css?v=20260820-2" />
+    <link rel="stylesheet" href="./host.css?v=20260820-3" />
     <title>Class Wall</title>
-    <script src="./host.js?v=20260820-2" defer></script>
+    <script src="./host.js?v=20260820-3" defer></script>
   </head>
   <body>
     <aside class="utility-rail" aria-label="Chat tools">
@@ -60,35 +60,52 @@
         ></div>
       </section>
 
+      <p class="typing-status" id="typing-status" role="status" hidden></p>
+
       <form
         class="composer"
         id="post-form"
         enctype="multipart/form-data"
         novalidate
       >
-        <div class="attachment-tray" id="selected-file" hidden>
-          <button
-            class="attachment-preview"
-            id="selected-file-preview"
-            type="button"
-            aria-label="Preview selected image"
-            hidden
-          >
-            <img id="selected-file-image" alt="" />
-          </button>
-          <span class="attachment-type" id="selected-file-type">FILE</span>
-          <span class="attachment-copy">
-            <strong id="selected-file-name"></strong>
-            <small id="selected-file-size"></small>
-          </span>
-          <button id="remove-file" type="button" aria-label="Remove selected file">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="m6 6 12 12M18 6 6 18" />
-            </svg>
-          </button>
-        </div>
+        <div class="composer-trays">
+          <div class="reply-tray" id="reply-tray" hidden>
+            <span class="reply-mark" aria-hidden="true">↩</span>
+            <span class="reply-copy">
+              <strong id="reply-author"></strong>
+              <small id="reply-message"></small>
+            </span>
+            <button id="cancel-reply" type="button" aria-label="Cancel reply">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m6 6 12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
 
-        <p class="form-error" id="form-error" role="alert" hidden></p>
+          <div class="attachment-tray" id="selected-file" hidden>
+            <button
+              class="attachment-preview"
+              id="selected-file-preview"
+              type="button"
+              aria-label="Preview selected image"
+              hidden
+            >
+              <img id="selected-file-image" alt="" />
+            </button>
+            <span class="attachment-type" id="selected-file-type">FILE</span>
+            <span class="attachment-copy">
+              <strong id="selected-file-name"></strong>
+              <small id="selected-file-size"></small>
+            </span>
+            <button id="remove-file" type="button" aria-label="Remove selected file">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m6 6 12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+
+          <p class="form-error" id="form-error" role="alert" hidden></p>
+        </div>
 
         <label class="attach-button" for="file" title="Attach a file">
           <span class="sr-only">Attach a file</span>
@@ -130,6 +147,11 @@
         </button>
       </form>
     </main>
+
+    <div class="message-menu" id="message-menu" role="menu" hidden>
+      <button id="reply-message-action" type="button" role="menuitem">Reply</button>
+      <button id="delete-message-action" type="button" role="menuitem">Delete</button>
+    </div>
 
     <dialog class="settings-dialog" id="settings-dialog" aria-labelledby="settings-title">
       <div class="settings-heading">
