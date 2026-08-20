@@ -797,6 +797,10 @@ document.addEventListener("pointerdown", (event) => {
   if (!messageMenu.hidden && !messageMenu.contains(event.target)) closeMessageMenu();
 });
 
+document.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+});
+
 closeDialogButton.addEventListener("click", () => imageDialog.close());
 imageDialog.addEventListener("click", (event) => {
   if (event.target === imageDialog) imageDialog.close();
