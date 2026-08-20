@@ -7,6 +7,20 @@
     "binding": "ASSETS",
     "run_worker_first": ["/", "/host", "/host/*", "/*.html", "/api/*", "/healthz"]
   },
+  "ai": {
+    "binding": "AI"
+  },
+  "vectorize": [
+    {
+      "binding": "FRIDAY_KNOWLEDGE",
+      "index_name": "friday-knowledge"
+    }
+  ],
+  "vars": {
+    "FRIDAY_DAILY_LIMIT": "20",
+    "FRIDAY_DEVICE_LIMIT": "8",
+    "FRIDAY_MAX_OUTPUT_TOKENS": "600"
+  },
   "r2_buckets": [
     {
       "binding": "HOST_FILES",

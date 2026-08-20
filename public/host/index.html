@@ -14,11 +14,31 @@
       type="font/woff2"
       crossorigin
     />
-    <link rel="stylesheet" href="./host.css?v=20260819-5" />
+    <link rel="stylesheet" href="./host.css?v=20260820-2" />
     <title>Class Wall</title>
-    <script src="./host.js?v=20260819-4" defer></script>
+    <script src="./host.js?v=20260820-2" defer></script>
   </head>
   <body>
+    <aside class="utility-rail" aria-label="Chat tools">
+      <button id="settings-button" type="button" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
+        </svg>
+      </button>
+      <button
+        id="compact-window-button"
+        type="button"
+        aria-label="Open compact window"
+        title="Open compact window"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4" y="5" width="16" height="14" rx="2" />
+          <path d="M13 5v14" />
+        </svg>
+      </button>
+    </aside>
+
     <main class="chat-shell">
       <section class="chat-stream" id="chat-stream" aria-label="Class messages">
         <div class="presence" id="live-status" data-state="connecting" title="Connecting">
@@ -83,7 +103,7 @@
           <textarea
             id="message"
             name="message"
-            maxlength="1200"
+            maxlength="6000"
             rows="1"
             placeholder="Message"
           ></textarea>
@@ -110,6 +130,63 @@
         </button>
       </form>
     </main>
+
+    <dialog class="settings-dialog" id="settings-dialog" aria-labelledby="settings-title">
+      <div class="settings-heading">
+        <strong id="settings-title">Settings</strong>
+        <button id="close-settings" type="button" aria-label="Close settings" title="Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m6 6 12 12M18 6 6 18" />
+          </svg>
+        </button>
+      </div>
+
+      <section class="settings-section" aria-labelledby="friday-settings-title">
+        <div class="settings-section-heading">
+          <strong id="friday-settings-title">Friday</strong>
+          <span title="Ask in chat with @Friday" aria-label="Ask in chat with at Friday">@</span>
+        </div>
+
+        <label class="settings-field" for="friday-admin-key">
+          <span>Admin key</span>
+          <input
+            id="friday-admin-key"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </label>
+
+        <div class="knowledge-row">
+          <label class="icon-button" for="knowledge-file" title="Choose reference">
+            <span class="sr-only">Choose a reference document</span>
+            <input
+              id="knowledge-file"
+              type="file"
+              accept=".pdf,.docx,.xlsx,.xls,.csv,.html,.htm,.txt,.md,.png,.jpg,.jpeg,.webp,.svg,.xml,.odt,.ods"
+            />
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3v12m0-12L8 7m4-4 4 4M5 14v5h14v-5" />
+            </svg>
+          </label>
+          <span class="knowledge-file-name" id="knowledge-file-name">No reference selected</span>
+          <button
+            class="icon-button"
+            id="index-document"
+            type="button"
+            aria-label="Add reference to Friday"
+            title="Add to Friday"
+            disabled
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+        </div>
+        <p class="knowledge-status" id="knowledge-status" role="status"></p>
+        <ul class="knowledge-list" id="knowledge-list" aria-label="Friday references"></ul>
+      </section>
+    </dialog>
 
     <dialog id="image-dialog" aria-label="Image preview">
       <div class="dialog-actions">

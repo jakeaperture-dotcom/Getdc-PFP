@@ -1,5 +1,7 @@
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const POSTS_API = "/api/host/posts";
+const KNOWLEDGE_API = "/api/host/knowledge";
+const MAX_KNOWLEDGE_BYTES = 10 * 1024 * 1024;
 const LOCAL_IMAGE_TYPES = new Set([
   "image/gif",
   "image/jpeg",
@@ -28,6 +30,16 @@ const imageDialog = document.querySelector("#image-dialog");
 const dialogImage = document.querySelector("#dialog-image");
 const dialogDownload = document.querySelector("#dialog-download");
 const closeDialogButton = document.querySelector("#close-dialog");
+const settingsButton = document.querySelector("#settings-button");
+const compactWindowButton = document.querySelector("#compact-window-button");
+const settingsDialog = document.querySelector("#settings-dialog");
+const closeSettingsButton = document.querySelector("#close-settings");
+const fridayAdminKey = document.querySelector("#friday-admin-key");
+const knowledgeFileInput = document.querySelector("#knowledge-file");
+const knowledgeFileName = document.querySelector("#knowledge-file-name");
+const indexDocumentButton = document.querySelector("#index-document");
+const knowledgeStatus = document.querySelector("#knowledge-status");
+const knowledgeList = document.querySelector("#knowledge-list");
 
 let posts = [];
 let pendingFile = null;
@@ -37,6 +49,8 @@ let reconnectAttempts = 0;
 let isLoadingPosts = false;
 let errorTimer;
 let selectedPreviewUrl;
+let knowledgeFile = null;
+let knowledgeTimer;
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -220,6 +234,81 @@ const createFileRow = (post) => {
   return row;
 };
 
+const copyText = async (text) => {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const helper = document.createElement("textarea");
+  helper.value = text;
+  helper.setAttribute("readonly", "");
+  helper.style.position = "fixed";
+  helper.style.opacity = "0";
+  document.body.append(helper);
+  helper.select();
+  const copied = document.execCommand("copy");
+  helper.remove();
+  if (!copied) throw new Error("Copy failed");
+};
+
+const createCodeBlock = (code) => {
+  const block = document.createElement("pre");
+  const content = document.createElement("code");
+  block.className = "message-code";
+  block.tabIndex = 0;
+  block.title = "Copy";
+  block.setAttribute("aria-label", "Copy code");
+  content.textContent = code.replace(/^\n|\n$/g, "");
+  block.append(content);
+
+  const copy = async () => {
+    try {
+      await copyText(content.textContent);
+      block.classList.add("is-copied");
+      block.title = "Copied";
+      window.setTimeout(() => {
+        block.classList.remove("is-copied");
+        block.title = "Copy";
+      }, 1200);
+    } catch {
+      showFormError("Could not copy code.");
+    }
+  };
+  block.addEventListener("click", copy);
+  block.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      copy();
+    }
+  });
+  return block;
+};
+
+const appendMessageContent = (bubble, value) => {
+  const fencePattern = /```[^\n`]*\n?([\s\S]*?)```/g;
+  let cursor = 0;
+  let match;
+  while ((match = fencePattern.exec(value))) {
+    const plain = value.slice(cursor, match.index).trim();
+    if (plain) {
+      const text = document.createElement("p");
+      text.className = "message-text";
+      text.textContent = plain;
+      bubble.append(text);
+    }
+    bubble.append(createCodeBlock(match[1]));
+    cursor = match.index + match[0].length;
+  }
+
+  const trailing = value.slice(cursor).trim();
+  if (trailing || !bubble.childElementCount) {
+    const text = document.createElement("p");
+    text.className = "message-text";
+    text.textContent = trailing || value;
+    bubble.append(text);
+  }
+};
+
 const openImage = (post) => {
   dialogImage.src = post.file.previewUrl;
   dialogImage.alt = `${post.file.name}, shared by ${post.author}`;
@@ -244,9 +333,9 @@ const createMessage = (post) => {
   const time = document.createElement("time");
   const bubble = document.createElement("div");
   const currentName = authorInput.value.trim();
-  const isOwn = Boolean(currentName) && post.author === currentName;
+  const isOwn = !post.bot && Boolean(currentName) && post.author === currentName;
 
-  message.className = `message${isOwn ? " is-own" : ""}`;
+  message.className = `message${isOwn ? " is-own" : ""}${post.bot ? " is-bot" : ""}`;
   message.dataset.postId = post.id;
   meta.className = "message-meta";
   author.textContent = post.author;
@@ -258,10 +347,7 @@ const createMessage = (post) => {
   bubble.className = "message-bubble";
 
   if (post.message) {
-    const text = document.createElement("p");
-    text.className = "message-text";
-    text.textContent = post.message;
-    bubble.append(text);
+    appendMessageContent(bubble, post.message);
   }
 
   if (post.file?.previewUrl && post.file.type.startsWith("image/")) {
@@ -315,7 +401,7 @@ const loadPosts = async ({ silent = false } = {}) => {
       cache: "no-store",
       headers: { Accept: "application/json" },
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     if (!response.ok || !Array.isArray(data.posts)) {
       throw new Error(data.error || "Could not load messages.");
     }
@@ -378,6 +464,30 @@ const connectLiveUpdates = () => {
 messageInput.addEventListener("input", () => {
   clearFormError();
   resizeMessageInput();
+});
+
+const looksLikeEditorCode = (html, text) => {
+  if (!html || !text.trim()) return false;
+  const normalizedHtml = html.toLowerCase();
+  const editorMarker =
+    normalizedHtml.includes("data-vscode") ||
+    normalizedHtml.includes("visual studio") ||
+    normalizedHtml.includes("jetbrains") ||
+    /font-family:[^;]*(consolas|cascadia|monaco|monospace|courier)/i.test(html);
+  return editorMarker && !text.includes("```");
+};
+
+messageInput.addEventListener("paste", (event) => {
+  const html = event.clipboardData?.getData("text/html") || "";
+  const text = event.clipboardData?.getData("text/plain") || "";
+  if (!looksLikeEditorCode(html, text)) return;
+
+  event.preventDefault();
+  const start = messageInput.selectionStart;
+  const end = messageInput.selectionEnd;
+  const insertion = `\`\`\`\n${text.replace(/\r\n?/g, "\n").trimEnd()}\n\`\`\``;
+  messageInput.setRangeText(insertion, start, end, "end");
+  messageInput.dispatchEvent(new Event("input", { bubbles: true }));
 });
 
 messageInput.addEventListener("keydown", (event) => {
@@ -451,7 +561,7 @@ postForm.addEventListener("submit", async (event) => {
       method: "POST",
       body: formData,
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     if (!response.ok || !data.post) {
       throw new Error(data.error || "Could not send.");
     }
@@ -480,6 +590,156 @@ imageDialog.addEventListener("close", () => {
   dialogDownload.removeAttribute("download");
 });
 
+const setCompactMode = (enabled) => {
+  document.body.classList.toggle("is-compact", enabled);
+  try {
+    sessionStorage.setItem("class-wall-compact", enabled ? "1" : "0");
+  } catch {
+    // Compact mode still works without session storage.
+  }
+};
+
+const toggleCompactMode = () => {
+  setCompactMode(!document.body.classList.contains("is-compact"));
+};
+
+const openCompactWindow = () => {
+  const compactUrl = new URL("/host/", window.location.href);
+  compactUrl.searchParams.set("compact", "1");
+  const compactWindow = window.open(
+    compactUrl,
+    "class-wall-compact",
+    "popup=yes,width=420,height=680,resizable=yes,scrollbars=no",
+  );
+  compactWindow?.focus();
+};
+
+const setKnowledgeStatus = (message) => {
+  knowledgeStatus.textContent = message;
+};
+
+const renderKnowledgeDocuments = (items) => {
+  knowledgeList.replaceChildren(
+    ...items.map((reference) => {
+      const item = document.createElement("li");
+      const name = document.createElement("strong");
+      const detail = document.createElement("small");
+      name.textContent = reference.name;
+      detail.textContent = `${reference.chunks} sections · ${formatBytes(reference.size)}`;
+      item.append(name, detail);
+      return item;
+    }),
+  );
+};
+
+const loadKnowledgeDocuments = async () => {
+  const adminKey = fridayAdminKey.value.trim();
+  if (!adminKey) {
+    knowledgeList.replaceChildren();
+    setKnowledgeStatus("");
+    return;
+  }
+  try {
+    const response = await fetch(KNOWLEDGE_API, {
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        "X-Friday-Admin": adminKey,
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !Array.isArray(data.documents)) {
+      throw new Error(data.error || "Could not load references.");
+    }
+    renderKnowledgeDocuments(data.documents);
+    setKnowledgeStatus(data.documents.length ? "" : "No references");
+  } catch (error) {
+    knowledgeList.replaceChildren();
+    setKnowledgeStatus(
+      error instanceof Error ? error.message : "Could not load references.",
+    );
+  }
+};
+
+const updateKnowledgeSelection = () => {
+  const file = knowledgeFileInput.files[0] || null;
+  knowledgeFile = file;
+  if (file && file.size > MAX_KNOWLEDGE_BYTES) {
+    knowledgeFile = null;
+    knowledgeFileInput.value = "";
+    knowledgeFileName.textContent = "Maximum reference size is 10 MB";
+  } else {
+    knowledgeFileName.textContent = file?.name || "No reference selected";
+  }
+  indexDocumentButton.disabled = !knowledgeFile;
+};
+
+const indexKnowledgeDocument = async () => {
+  const adminKey = fridayAdminKey.value.trim();
+  if (!adminKey) {
+    setKnowledgeStatus("Enter the admin key.");
+    fridayAdminKey.focus();
+    return;
+  }
+  if (!knowledgeFile) return;
+
+  indexDocumentButton.disabled = true;
+  settingsDialog.setAttribute("aria-busy", "true");
+  setKnowledgeStatus("Adding reference…");
+  try {
+    const formData = new FormData();
+    formData.set("document", knowledgeFile, knowledgeFile.name);
+    const response = await fetch(KNOWLEDGE_API, {
+      method: "POST",
+      headers: { "X-Friday-Admin": adminKey },
+      body: formData,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.document) {
+      throw new Error(data.error || "Could not add reference.");
+    }
+    knowledgeFileInput.value = "";
+    updateKnowledgeSelection();
+    setKnowledgeStatus("Reference added");
+    await loadKnowledgeDocuments();
+  } catch (error) {
+    setKnowledgeStatus(
+      error instanceof Error ? error.message : "Could not add reference.",
+    );
+  } finally {
+    settingsDialog.removeAttribute("aria-busy");
+    indexDocumentButton.disabled = !knowledgeFile;
+  }
+};
+
+settingsButton.addEventListener("click", () => {
+  settingsDialog.showModal();
+  loadKnowledgeDocuments();
+});
+closeSettingsButton.addEventListener("click", () => settingsDialog.close());
+settingsDialog.addEventListener("click", (event) => {
+  if (event.target === settingsDialog) settingsDialog.close();
+});
+compactWindowButton.addEventListener("click", openCompactWindow);
+knowledgeFileInput.addEventListener("change", updateKnowledgeSelection);
+indexDocumentButton.addEventListener("click", indexKnowledgeDocument);
+fridayAdminKey.addEventListener("input", () => {
+  window.clearTimeout(knowledgeTimer);
+  knowledgeTimer = window.setTimeout(loadKnowledgeDocuments, 450);
+  try {
+    sessionStorage.setItem("friday-admin-key", fridayAdminKey.value);
+  } catch {
+    // The key remains available for this open page.
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.code === "Numpad0" && !event.repeat) {
+    event.preventDefault();
+    toggleCompactMode();
+  }
+});
+
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) loadPosts({ silent: true });
 });
@@ -490,13 +750,27 @@ try {
   // The wall works normally without local storage.
 }
 
+try {
+  fridayAdminKey.value = sessionStorage.getItem("friday-admin-key") || "";
+  const compactRequested =
+    new URLSearchParams(window.location.search).get("compact") === "1" ||
+    sessionStorage.getItem("class-wall-compact") === "1";
+  setCompactMode(compactRequested);
+} catch {
+  setCompactMode(new URLSearchParams(window.location.search).get("compact") === "1");
+}
+
 window.setInterval(() => {
   document.querySelectorAll("[data-relative-time]").forEach((time) => {
     time.textContent = relativeTime(time.dataset.relativeTime);
   });
 }, 30_000);
 
-window.setInterval(() => loadPosts({ silent: true }), 15_000);
+window.setInterval(() => {
+  if (!document.hidden && socket?.readyState !== WebSocket.OPEN) {
+    loadPosts({ silent: true });
+  }
+}, 15_000);
 resizeMessageInput();
 loadPosts();
 connectLiveUpdates();
