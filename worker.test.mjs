@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { timingSafeEqual as nodeTimingSafeEqual } from "node:crypto";
 import test from "node:test";
 
 import worker, {
@@ -12,6 +13,17 @@ import worker, {
   utcDayKey,
 } from "./worker.js";
 
+if (!crypto.subtle.timingSafeEqual) {
+  Object.defineProperty(crypto.subtle, "timingSafeEqual", {
+    value(left, right) {
+      return nodeTimingSafeEqual(
+        Buffer.from(left.buffer || left, left.byteOffset || 0, left.byteLength),
+        Buffer.from(right.buffer || right, right.byteOffset || 0, right.byteLength),
+      );
+    },
+  });
+}
+
 class MemoryStorage {
   constructor() {
     this.values = new Map();
@@ -23,6 +35,14 @@ class MemoryStorage {
 
   async put(key, value) {
     this.values.set(key, value);
+  }
+
+  async delete(key) {
+    const keys = Array.isArray(key) ? key : [key];
+    return keys.reduce(
+      (count, item) => count + (this.values.delete(item) ? 1 : 0),
+      0,
+    );
   }
 
   async transaction(callback) {
@@ -64,6 +84,7 @@ const createWorkerEnvironment = () => {
       FRIDAY_DAILY_LIMIT: "20",
       FRIDAY_DEVICE_LIMIT: "8",
       FRIDAY_MAX_OUTPUT_TOKENS: "600",
+      FRIDAY_ADMIN_TOKEN: "correct-horse-battery-staple",
       FRIDAY_KNOWLEDGE: {
         async query() { return { matches: [] }; },
       },
@@ -117,6 +138,11 @@ test("Friday output extraction supports chat completion responses", () => {
     "Use a for loop.",
   );
   assert.equal(extractFridayText({ response: "Fallback" }), "Fallback");
+  assert.equal(
+    extractFridayText({ choices: [{ text: "Legacy completion" }] }),
+    "Legacy completion",
+  );
+  assert.equal(extractFridayText({ output_text: "Responses output" }), "Responses output");
 });
 
 test("embedding extraction supports Workers AI responses", () => {
@@ -137,6 +163,7 @@ test("post metadata exposes bot identity without trusting an author name", () =>
   });
   assert.equal(post.bot, true);
   assert.equal(post.file, null);
+  assert.equal(post.canDelete, false);
 });
 
 test("numeric settings are clamped and UTC day keys are stable", () => {
@@ -188,7 +215,7 @@ test("posting @Friday creates a stored AI reply through the live hub", async () 
     waitUntil(promise) { pending.push(promise); },
   });
   assert.equal(response.status, 201);
-  await Promise.all(pending);
+  assert.equal(pending.length, 0);
 
   const feed = await worker.fetch(
     new Request("https://example.test/api/host/posts"),
@@ -200,4 +227,139 @@ test("posting @Friday creates a stored AI reply through the live hub", async () 
   assert.equal(data.posts[0].author, "Friday");
   assert.equal(data.posts[0].bot, true);
   assert.match(data.posts[0].message, /print/);
+  assert.equal(data.posts[0].reply.id, data.posts[1].id);
+});
+
+test("Friday retries once when the model returns no visible answer", async () => {
+  const { env } = createWorkerEnvironment();
+  let attempts = 0;
+  env.AI.run = async () => {
+    attempts += 1;
+    return attempts === 1
+      ? { choices: [{ message: { content: null }, finish_reason: "length" }] }
+      : { choices: [{ message: { content: "Here is the final answer." } }] };
+  };
+  const formData = new FormData();
+  formData.set("author", "Jake");
+  formData.set("message", "@Friday answer this");
+  const response = await worker.fetch(
+    new Request("https://example.test/api/host/posts", {
+      method: "POST",
+      headers: { "X-Host-Device": "d".repeat(64) },
+      body: formData,
+    }),
+    env,
+    { waitUntil() {} },
+  );
+  assert.equal(response.status, 201);
+  assert.equal(attempts, 2);
+
+  const feed = await worker.fetch(
+    new Request("https://example.test/api/host/posts"),
+    env,
+    { waitUntil() {} },
+  );
+  assert.equal((await feed.json()).posts[0].message, "Here is the final answer.");
+});
+
+test("replies keep a compact snapshot of the target message", async () => {
+  const { env } = createWorkerEnvironment();
+  const device = "a".repeat(64);
+  const createPost = async (message, replyTo = "") => {
+    const formData = new FormData();
+    formData.set("author", "Jake");
+    formData.set("message", message);
+    if (replyTo) formData.set("replyTo", replyTo);
+    return worker.fetch(
+      new Request("https://example.test/api/host/posts", {
+        method: "POST",
+        headers: { "X-Host-Device": device },
+        body: formData,
+      }),
+      env,
+      { waitUntil() {} },
+    );
+  };
+
+  const first = await (await createPost("Original message")).json();
+  const secondResponse = await createPost("Reply", first.post.id);
+  assert.equal(secondResponse.status, 201);
+  const second = await secondResponse.json();
+  assert.deepEqual(second.post.reply, {
+    id: first.post.id,
+    author: "Jake",
+    message: "Original message",
+  });
+});
+
+test("message deletion requires the owning browser or the admin key", async () => {
+  const { env } = createWorkerEnvironment();
+  const ownerDevice = "b".repeat(64);
+  const strangerDevice = "c".repeat(64);
+  const formData = new FormData();
+  formData.set("author", "Jake");
+  formData.set("message", "Delete me");
+  const created = await worker.fetch(
+    new Request("https://example.test/api/host/posts", {
+      method: "POST",
+      headers: { "X-Host-Device": ownerDevice },
+      body: formData,
+    }),
+    env,
+    { waitUntil() {} },
+  );
+  const { post } = await created.json();
+  assert.equal(post.canDelete, true);
+
+  const forbidden = await worker.fetch(
+    new Request(`https://example.test/api/host/posts/${post.id}`, {
+      method: "DELETE",
+      headers: { "X-Host-Device": strangerDevice },
+    }),
+    env,
+    { waitUntil() {} },
+  );
+  assert.equal(forbidden.status, 403);
+
+  const deleted = await worker.fetch(
+    new Request(`https://example.test/api/host/posts/${post.id}`, {
+      method: "DELETE",
+      headers: { "X-Host-Device": ownerDevice },
+    }),
+    env,
+    { waitUntil() {} },
+  );
+  assert.equal(deleted.status, 200);
+
+  const feed = await worker.fetch(
+    new Request("https://example.test/api/host/posts", {
+      headers: { "X-Host-Device": ownerDevice },
+    }),
+    env,
+    { waitUntil() {} },
+  );
+  assert.equal((await feed.json()).posts.length, 0);
+
+  const legacyId = crypto.randomUUID();
+  await env.POST_HUB.get().fetch("https://host.internal/posts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: legacyId,
+      author: "Old browser",
+      message: "Admin only",
+      createdAt: new Date().toISOString(),
+      hasFile: "0",
+      bot: "0",
+    }),
+  });
+  const adminDeleted = await worker.fetch(
+    new Request(`https://example.test/api/host/posts/${legacyId}`, {
+      method: "DELETE",
+      headers: { "X-Friday-Admin": "correct-horse-battery-staple" },
+    }),
+    env,
+    { waitUntil() {} },
+  );
+  assert.equal(adminDeleted.status, 200);
 });

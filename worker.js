@@ -4,6 +4,8 @@ const HOST_LIVE_PATH = "/api/host/live";
 const HOST_FILES_PREFIX = "/api/host/files/";
 const HOST_KNOWLEDGE_PATH = "/api/host/knowledge";
 const FILE_OBJECT_PREFIX = "files/";
+const DEVICE_TOKEN_PATTERN = /^[a-f0-9]{64}$/i;
+const POST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 const MAX_KNOWLEDGE_BYTES = 10 * 1024 * 1024;
 const MAX_REQUEST_BYTES = MAX_UPLOAD_BYTES + 128 * 1024;
@@ -102,7 +104,7 @@ const apiError = (status, code, message) =>
 const hostApiError = (status, code, message) =>
   jsonResponse(status, { code, error: message });
 
-const postFromMetadata = (metadata = {}) => {
+const postFromMetadata = (metadata = {}, viewerOwnerId = "") => {
   const hasFile = metadata.hasFile === "1";
   const id = metadata.id || "";
   const fileType = metadata.fileType || "application/octet-stream";
@@ -113,6 +115,16 @@ const postFromMetadata = (metadata = {}) => {
     message: metadata.message || "",
     createdAt: metadata.createdAt || new Date(0).toISOString(),
     bot: metadata.bot === "1",
+    canDelete: Boolean(
+      viewerOwnerId && metadata.ownerId && viewerOwnerId === metadata.ownerId,
+    ),
+    reply: metadata.replyId
+      ? {
+          id: metadata.replyId,
+          author: metadata.replyAuthor || "Anonymous",
+          message: metadata.replyMessage || "Attachment",
+        }
+      : null,
     file: hasFile
       ? {
           name: metadata.fileName || "download",
@@ -217,6 +229,13 @@ const extractFridayText = (result) => {
       .join("")
       .trim();
   }
+  if (typeof result?.choices?.[0]?.text === "string") {
+    return result.choices[0].text.trim();
+  }
+  if (typeof result?.output_text === "string") return result.output_text.trim();
+  if (typeof result?.result?.response === "string") {
+    return result.result.response.trim();
+  }
   if (typeof result?.response === "string") return result.response.trim();
   return "";
 };
@@ -235,7 +254,29 @@ const storeHostPostMetadata = async (env, metadata) => {
   if (!stored.ok) throw new Error("Post metadata could not be stored");
 };
 
-const createFridayPost = async (env, message) => {
+const getRawHostPost = async (env, postId) => {
+  const response = await getPostHub(env).fetch(
+    `https://host.internal/posts/${postId}`,
+    { headers: { Accept: "application/json" } },
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error("Post metadata could not be read");
+  return response.json();
+};
+
+const replyMetadata = (post) =>
+  post
+    ? {
+        replyId: post.id,
+        replyAuthor: String(post.author || "Anonymous").slice(0, MAX_AUTHOR_LENGTH),
+        replyMessage: String(post.message || (post.hasFile === "1" ? "Attachment" : "Message"))
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 220),
+      }
+    : { replyId: "", replyAuthor: "", replyMessage: "" };
+
+const createFridayPost = async (env, message, replyTo = null) => {
   const metadata = {
     id: crypto.randomUUID(),
     author: FRIDAY_NAME,
@@ -246,9 +287,20 @@ const createFridayPost = async (env, message) => {
     fileType: "",
     fileSize: "0",
     bot: "1",
+    ownerId: "",
+    ...replyMetadata(replyTo),
   };
   await storeHostPostMetadata(env, metadata);
   return metadata;
+};
+
+const setFridayTyping = async (env, postId, active) => {
+  const response = await getPostHub(env).fetch("https://host.internal/typing", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: postId, name: FRIDAY_NAME, active }),
+  });
+  if (!response.ok) throw new Error("Typing status could not be broadcast");
 };
 
 const listRawHostPosts = async (env, limit = 50) => {
@@ -326,7 +378,7 @@ const retrieveFridayKnowledge = async (question, env) => {
 const handleFridayMention = async (post, env, actor) => {
   const question = post.message.replace(FRIDAY_TRIGGER, "").trim();
   if (!question) {
-    await createFridayPost(env, "What should I help with?");
+    await createFridayPost(env, "What should I help with?", post);
     return;
   }
 
@@ -344,12 +396,20 @@ const handleFridayMention = async (post, env, actor) => {
         quota.reason === "daily"
           ? "Daily limit reached."
           : "This device has reached its Friday limit.";
-      await createFridayPost(env, message);
+      await createFridayPost(env, message, post);
     }
     return;
   }
 
+  let typingWasStarted = false;
   try {
+    await setFridayTyping(env, post.id, true)
+      .then(() => {
+        typingWasStarted = true;
+      })
+      .catch((error) => {
+        logError("friday.typing.start", error);
+      });
     const [recentPosts, references] = await Promise.all([
       listRawHostPosts(env, 30),
       retrieveFridayKnowledge(question, env),
@@ -387,37 +447,75 @@ const handleFridayMention = async (post, env, actor) => {
         content: `${post.author || "Student"}: ${question}${referenceText}`,
       },
     ];
-    const result = await env.AI.run(
-      FRIDAY_MODEL,
-      {
-        messages,
-        max_completion_tokens: fridaySettings(env).maxOutputTokens,
-        temperature: 0.35,
-        user: actor,
-      },
-      {
-        extraHeaders: { "x-session-affinity": "classroom-wall-friday" },
-      },
-    );
-    const answer = extractFridayText(result);
-    await createFridayPost(
-      env,
-      answer || "I couldn't create an answer. Try asking in a shorter way.",
-    );
+    const settings = fridaySettings(env);
+    let answer = "";
+    let lastError;
+    for (let attempt = 0; attempt < 2 && !answer; attempt += 1) {
+      try {
+        const result = await env.AI.run(
+          FRIDAY_MODEL,
+          {
+            messages:
+              attempt === 0
+                ? messages
+                : [
+                    ...messages,
+                    {
+                      role: "system",
+                      content: "Return only the concise final answer now.",
+                    },
+                  ],
+            max_completion_tokens:
+              attempt === 0
+                ? settings.maxOutputTokens
+                : Math.min(1200, Math.max(800, settings.maxOutputTokens)),
+            reasoning_effort: "low",
+            temperature: attempt === 0 ? 0.35 : 0.2,
+            user: actor,
+          },
+          {
+            extraHeaders: { "x-session-affinity": "classroom-wall-friday" },
+          },
+        );
+        answer = extractFridayText(result);
+        if (!answer) {
+          lastError = new Error(
+            `Friday returned no visible text (${result?.choices?.[0]?.finish_reason || "unknown"})`,
+          );
+        }
+      } catch (error) {
+        lastError = error;
+      }
+      if (!answer && attempt === 0) logError("friday.response.retry", lastError);
+    }
+    if (!answer) throw lastError || new Error("Friday returned no visible text");
+    await createFridayPost(env, answer, post);
   } catch (error) {
     logError("friday.response", error);
-    await createFridayPost(env, "Friday is unavailable right now.").catch(
-      () => {},
-    );
+    await createFridayPost(env, "Friday is unavailable right now.", post).catch(() => {});
+  } finally {
+    if (typingWasStarted) {
+      await setFridayTyping(env, post.id, false).catch((error) => {
+        logError("friday.typing.clear", error);
+      });
+    }
   }
 };
 
-const listHostPosts = async (env) => {
-  const posts = await listRawHostPosts(env);
-  return jsonResponse(200, { posts: posts.map(postFromMetadata) });
+const ownerIdFromRequest = async (request) => {
+  const token = request.headers.get("X-Host-Device") || "";
+  return DEVICE_TOKEN_PATTERN.test(token) ? hashIdentifier(token.toLowerCase()) : "";
 };
 
-const createHostPost = async (request, env, ctx) => {
+const listHostPosts = async (request, env) => {
+  const ownerId = await ownerIdFromRequest(request);
+  const posts = await listRawHostPosts(env);
+  return jsonResponse(200, {
+    posts: posts.map((post) => postFromMetadata(post, ownerId)),
+  });
+};
+
+const createHostPost = async (request, env) => {
   const contentLength = Number(request.headers.get("content-length") || 0);
   if (contentLength > MAX_REQUEST_BYTES) {
     return hostApiError(
@@ -459,6 +557,7 @@ const createHostPost = async (request, env, ctx) => {
   const authorValue = formData.get("author");
   const messageValue = formData.get("message");
   const fileValue = formData.get("file");
+  const replyToValue = formData.get("replyTo");
   let author =
     (typeof authorValue === "string" ? authorValue.trim() : "").slice(
       0,
@@ -517,6 +616,18 @@ const createHostPost = async (request, env, ctx) => {
   let fileWasStored = false;
 
   try {
+    const ownerId = await ownerIdFromRequest(request);
+    let replyTo = null;
+    if (typeof replyToValue === "string" && replyToValue) {
+      if (!POST_ID_PATTERN.test(replyToValue)) {
+        return hostApiError(400, "INVALID_REPLY", "That reply target is invalid.");
+      }
+      replyTo = await getRawHostPost(env, replyToValue);
+      if (!replyTo) {
+        return hostApiError(404, "REPLY_NOT_FOUND", "That message no longer exists.");
+      }
+    }
+
     if (hasFile) {
       await env.HOST_FILES.put(fileKey, fileValue.stream(), {
         httpMetadata: { contentType: fileType },
@@ -535,16 +646,18 @@ const createHostPost = async (request, env, ctx) => {
       fileType,
       fileSize: hasFile ? String(fileValue.size) : "0",
       bot: "0",
+      ownerId,
+      ...replyMetadata(replyTo),
     };
 
     await storeHostPostMetadata(env, metadata);
 
     if (FRIDAY_TRIGGER.test(message)) {
-      const actor = await hashIdentifier(clientIp);
-      ctx.waitUntil(handleFridayMention(metadata, env, actor));
+      const actor = ownerId || (await hashIdentifier(clientIp));
+      await handleFridayMention(metadata, env, actor);
     }
 
-    return jsonResponse(201, { post: postFromMetadata(metadata) });
+    return jsonResponse(201, { post: postFromMetadata(metadata, ownerId) });
   } catch (error) {
     if (fileWasStored) {
       await env.HOST_FILES.delete(fileKey).catch(() => {});
@@ -556,6 +669,35 @@ const createHostPost = async (request, env, ctx) => {
       "The post could not be saved. Try again.",
     );
   }
+};
+
+const deleteHostPost = async (request, env, postId) => {
+  if (!POST_ID_PATTERN.test(postId)) {
+    return hostApiError(404, "POST_NOT_FOUND", "Message not found.");
+  }
+
+  const post = await getRawHostPost(env, postId);
+  if (!post) return hostApiError(404, "POST_NOT_FOUND", "Message not found.");
+
+  const ownerId = await ownerIdFromRequest(request);
+  const ownsPost = Boolean(ownerId && post.ownerId && ownerId === post.ownerId);
+  const isAdmin = await fridayAdminAuthorized(request, env);
+  if (!ownsPost && !isAdmin) {
+    return hostApiError(403, "DELETE_FORBIDDEN", "You cannot delete this message.");
+  }
+
+  const deleted = await getPostHub(env).fetch(
+    `https://host.internal/posts/${postId}`,
+    { method: "DELETE" },
+  );
+  if (!deleted.ok) throw new Error("Post metadata could not be deleted");
+
+  if (post.hasFile === "1") {
+    await env.HOST_FILES.delete(`${FILE_OBJECT_PREFIX}${postId}`).catch((error) => {
+      logError("host.post.file.delete", error);
+    });
+  }
+  return jsonResponse(200, { deleted: postId });
 };
 
 const fridayAdminAuthorized = async (request, env) => {
@@ -761,7 +903,7 @@ const serveHostFile = async (request, env, url) => {
   }
 
   const id = url.pathname.slice(HOST_FILES_PREFIX.length);
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+  if (!POST_ID_PATTERN.test(id)) {
     return hostApiError(404, "FILE_NOT_FOUND", "File not found.");
   }
 
@@ -823,10 +965,11 @@ export class PostHub {
       const reverseTimestamp = String(
         9_999_999_999_999 - new Date(post.createdAt).getTime(),
       ).padStart(13, "0");
-      await this.state.storage.put(
-        `posts/${reverseTimestamp}-${post.id}`,
-        post,
-      );
+      const postKey = `posts/${reverseTimestamp}-${post.id}`;
+      await Promise.all([
+        this.state.storage.put(postKey, post),
+        this.state.storage.put(`post-index/${post.id}`, postKey),
+      ]);
 
       const message = JSON.stringify({
         type: "post.created",
@@ -840,6 +983,42 @@ export class PostHub {
         }
       });
       return new Response(null, { status: 201 });
+    }
+
+    if (url.pathname.startsWith("/posts/") && ["GET", "DELETE"].includes(request.method)) {
+      const postId = url.pathname.slice("/posts/".length);
+      if (!POST_ID_PATTERN.test(postId)) return new Response("Not found", { status: 404 });
+
+      let postKey = await this.state.storage.get(`post-index/${postId}`);
+      if (!postKey) {
+        const legacyPosts = await this.state.storage.list({ prefix: "posts/", limit: 1000 });
+        for (const [key, value] of legacyPosts) {
+          if (value?.id === postId) {
+            postKey = key;
+            await this.state.storage.put(`post-index/${postId}`, key);
+            break;
+          }
+        }
+      }
+      if (!postKey) return new Response("Not found", { status: 404 });
+      const post = await this.state.storage.get(postKey);
+      if (!post) return new Response("Not found", { status: 404 });
+
+      if (request.method === "GET") return Response.json(post);
+      await this.state.storage.delete([postKey, `post-index/${postId}`]);
+      this.broadcast({ type: "post.deleted", postId });
+      return new Response(null, { status: 204 });
+    }
+
+    if (url.pathname === "/typing" && request.method === "POST") {
+      const input = await request.json();
+      this.broadcast({
+        type: "typing",
+        id: String(input.id || "").slice(0, 64),
+        name: String(input.name || "").slice(0, MAX_AUTHOR_LENGTH),
+        active: input.active === true,
+      });
+      return new Response(null, { status: 204 });
     }
 
     if (url.pathname === "/friday/reserve" && request.method === "POST") {
@@ -929,12 +1108,44 @@ export class PostHub {
   }
 
   webSocketMessage(socket, message) {
-    if (message === "ping") socket.send("pong");
+    if (message === "ping") {
+      socket.send("pong");
+      return;
+    }
+    if (typeof message !== "string" || message.length > 512) return;
+    try {
+      const input = JSON.parse(message);
+      if (input?.type !== "typing") return;
+      const id = String(input.id || "").slice(0, 64);
+      let name = String(input.name || "").trim().slice(0, MAX_AUTHOR_LENGTH);
+      if (!/^[0-9a-f-]{16,64}$/i.test(id) || !name) return;
+      if (name.toLowerCase() === FRIDAY_NAME.toLowerCase()) {
+        name = `${FRIDAY_NAME} (guest)`;
+      }
+      this.broadcast(
+        { type: "typing", id, name, active: input.active === true },
+        socket,
+      );
+    } catch {
+      // Ignore malformed realtime events.
+    }
+  }
+
+  broadcast(payload, excludedSocket) {
+    const message = JSON.stringify(payload);
+    this.state.getWebSockets().forEach((socket) => {
+      if (socket === excludedSocket) return;
+      try {
+        socket.send(message);
+      } catch {
+        socket.close(1011, "Broadcast failed");
+      }
+    });
   }
 }
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env) {
     const url = new URL(request.url);
 
     if (url.pathname === "/index.html") {
@@ -951,7 +1162,7 @@ export default {
     if (url.pathname === HOST_POSTS_PATH) {
       if (request.method === "GET") {
         try {
-          return await listHostPosts(env);
+          return await listHostPosts(request, env);
         } catch (error) {
           logError("host.feed", error);
           return hostApiError(
@@ -962,9 +1173,25 @@ export default {
         }
       }
       if (request.method === "POST") {
-        return createHostPost(request, env, ctx);
+        return createHostPost(request, env);
       }
       return hostApiError(405, "METHOD_NOT_ALLOWED", "Method not allowed.");
+    }
+
+    if (url.pathname.startsWith(`${HOST_POSTS_PATH}/`)) {
+      if (request.method !== "DELETE") {
+        return hostApiError(405, "METHOD_NOT_ALLOWED", "Method not allowed.");
+      }
+      try {
+        return await deleteHostPost(
+          request,
+          env,
+          url.pathname.slice(`${HOST_POSTS_PATH}/`.length),
+        );
+      } catch (error) {
+        logError("host.post.delete", error);
+        return hostApiError(503, "DELETE_UNAVAILABLE", "The message could not be deleted.");
+      }
     }
 
     if (url.pathname === HOST_LIVE_PATH) {

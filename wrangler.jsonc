@@ -2,6 +2,7 @@
   "name": "getdcpfp",
   "main": "worker.js",
   "compatibility_date": "2026-08-02",
+  "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
