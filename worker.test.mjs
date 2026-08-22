@@ -230,6 +230,38 @@ test("posting @Friday creates a stored AI reply through the live hub", async () 
   assert.equal(data.posts[0].reply.id, data.posts[1].id);
 });
 
+test("pseudocode requests receive the strict classroom rules", async () => {
+  const { env } = createWorkerEnvironment();
+  let modelOptions;
+  env.AI.run = async (_model, options) => {
+    modelOptions = options;
+    return { choices: [{ message: { content: "```text\nSERVE coffee\n```" } }] };
+  };
+  const formData = new FormData();
+  formData.set("author", "Jake");
+  formData.set("message", "@Friday make pseudocode for making coffee");
+
+  const response = await worker.fetch(
+    new Request("https://example.test/api/host/posts", {
+      method: "POST",
+      headers: { "X-Host-Device": "p".repeat(64) },
+      body: formData,
+    }),
+    env,
+    { waitUntil() {} },
+  );
+
+  assert.equal(response.status, 201);
+  assert.equal(modelOptions.temperature, 0.1);
+  const pseudocodeRules = modelOptions.messages
+    .filter((message) => message.role === "system")
+    .map((message) => message.content)
+    .join("\n");
+  assert.match(pseudocodeRules, /PRINT or WRITE only displays information/);
+  assert.match(pseudocodeRules, /SERVE coffee, not PRINT coffee/);
+  assert.match(pseudocodeRules, /Never use an object, variable, or result before/);
+});
+
 test("Friday retries once when the model returns no visible answer", async () => {
   const { env } = createWorkerEnvironment();
   let attempts = 0;
